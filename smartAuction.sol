@@ -1,4 +1,4 @@
-pragma solidity ^0.4.21;
+pragma solidity ^0.4.22;
 
 contract smartAuction {
     address public auctioneer; //the seller
@@ -8,21 +8,20 @@ contract smartAuction {
     address winningBidder;
     
     uint reservePrice; //the seller may decide to not sell the good if highestBid < reservePrice
-    uint buyOutPrice;
     
     enum phase {preAuction, auction, postAuction} //enum phases of the auction
-    uint preAuctionLength;
-    uint auctionLength;
-    uint postAuctionLength;
-    uint startingBlock;
+    uint startingBlock; //auction init block number
+    uint preAuctionLength; //pre auction time period, in blocks
+    uint auctionLength; //auction/bidding time period, in blocks
+    uint postAuctionLength; //post auction time period, in blocks
     
-    event log(string debug);
+    event log(string debug); //debug
     event newBid(address bidder, uint amount); //notify new bid
     event newHighestBid(address bidder, uint amount); //notify new highest bid
     
     //init auction instance
-    function smartAuction(uint _preAuctionLength, uint _auctionLength, uint _postAuctionLength, uint _reservePrice, uint _buyOutPrice) public {
-        require(_auctionLength > 0 && _reservePrice > 0);
+    constructor(uint _preAuctionLength, uint _auctionLength, uint _postAuctionLength, uint _reservePrice) public {
+        require(_auctionLength > 0 && _reservePrice > 0, "You must specify the auction time(in block) and reserve price!");
         auctioneer = msg.sender;
         startingBlock = block.number;
         
@@ -31,21 +30,9 @@ contract smartAuction {
         postAuctionLength = _postAuctionLength;
         
         reservePrice = _reservePrice;
-        buyOutPrice = _buyOutPrice;
     }
     
-    /*function preAuctionPhase() public {
-        emit log("before starting the auction");
-    }
-    
-    function AuctionPhase() public {
-        emit log("during the auction");
-    }
-    
-    function postAuctionPhase() public {
-        emit log("after the auction ended");
-    }*/
-    
+    //default bid method: the winning bidder is the one with the highest bid
     function bid(uint amount) public {
         address bidder = msg.sender;
         
@@ -59,17 +46,10 @@ contract smartAuction {
         }
     }
     
-    function buyOut(uint amount) public {
-        require(currentPhase() == phase.preAuction);
-        require(amount >= buyOutPrice);
-        
-        //PAY
-    }
-    
     //determine the phase of the auction
     function currentPhase() public returns (phase _currentPhase) {
         uint currentBlock = block.number;
-        require((startingBlock + preAuctionLength + auctionLength + postAuctionLength) > currentBlock);
+        require((startingBlock + preAuctionLength + auctionLength + postAuctionLength) > currentBlock, "The auction is already concluded!");
         
         if((startingBlock + preAuctionLength) - 1 >= currentBlock){
             emit log("pre");
@@ -83,5 +63,22 @@ contract smartAuction {
             emit log("post");
             return phase.postAuction;
         }
+    }
+}
+
+contract englishAuction is smartAuction{
+    uint buyOutPrice;
+    constructor(uint _preAuctionLength, uint _auctionLength, uint _postAuctionLength, uint _reservePrice, uint _buyOutPrice) 
+                    smartAuction(_preAuctionLength, _auctionLength, _postAuctionLength, _reservePrice) public {
+        
+        buyOutPrice = _buyOutPrice;
+    }
+    
+    function buyOut(uint amount) public {
+        require(currentPhase() == phase.preAuction, "Auction already started, you can't buy out anymore!");
+        require(amount >= buyOutPrice, "Your amount is not enough!");
+        
+        //PAY
+        emit log("payed buy out");
     }
 }
