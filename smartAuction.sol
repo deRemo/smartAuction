@@ -5,7 +5,7 @@ contract smartAuction {
     mapping(address => uint) bidders; //maps bidders to the amount they spent
     bool finalized; //set at true when the payment is finalized, to avoid multiple unwanted transfers 
     
-    uint highestBid;
+    uint winningBid;
     address winningBidder;
     
     uint reservePrice; //the seller may decide to not sell the good if highestBid < reservePrice
@@ -74,31 +74,29 @@ contract smartAuction {
     //WARNING: if amount is lower than how much the bidder spent, the leftovers remains on the contract for ever!
     //WARNING: DON'T call it directly, but use it in another function that does all the condition checks instead!
     function refundTo(address bidder, uint amount) internal returns (bool){
-        if(amount > 0){
-            bidders[bidder] = 0;
-            
-            if(!bidder.send(amount)){
-                bidders[bidder] = amount;
-            
-                return false;
-            }
+        require(amount > 0, "you are refunding nothing!");
+        require(amount <= bidders[bidder], "you don't have to refund that much!");
+        
+        if(!bidder.send(amount)){
+            bidders[bidder] = amount;
+        
+            return false;
         }
+        else bidders[bidder] = 0;
         
         emit refundEvent(bidder, amount);
         return true;
     }
     
-    //default finalize method:transfer the money of the winning bidder to the auctioneer's wallet
-    function finalize() payable public{
+    //default finalize conditions
+    function finalizeConditions() payable public{
         require(currentPhase() == phase.end, "Auction hasn't ended yet");
         require(!finalized, "The payment has already been finalized");
         require(msg.sender == winningBidder || msg.sender == auctioneer, "You are not the winner or the auctioneer!");
-        require(highestBid >= reservePrice, "reserve price minimum not satisfied!");
+        require(winningBid >= reservePrice, "reserve price minimum not satisfied!");
         
         finalized = true;
-        
-        emit finalizeEvent(winningBidder, highestBid);
-        auctioneer.transfer(highestBid);
+        emit finalizeEvent(winningBidder, winningBid);
     }
 }
 
@@ -119,7 +117,7 @@ contract englishAuction is smartAuction{
         increment = _increment;
         unchallegedLength = _unchallegedLength;
         
-        highestBid = reservePrice;
+        winningBid = reservePrice;
     }
     
     function buyOut() payable public {
@@ -130,7 +128,7 @@ contract englishAuction is smartAuction{
         require(amount >= buyOutPrice, "Your amount is not enough to buy out!");
         
         //pay!
-        highestBid = amount;
+        winningBid = amount;
         winningBidder = msg.sender;
         
         //The auction can be considered over, because the buyout condition is satisfied
@@ -143,8 +141,8 @@ contract englishAuction is smartAuction{
         
         address bidder = msg.sender;
         uint amount = msg.value;
-        require(amount > highestBid, "There is an higher bid already!");
-        require(amount >= highestBid + increment, "You have to pay a minimum increment amount!");
+        require(amount > winningBid, "There is an higher bid already!");
+        require(amount >= winningBid + increment, "You have to pay a minimum increment amount!");
         
         biddingLength += block.number - creationBlock + 1; //increment bidding time in order to have the same unchallegedLength for each bid
         
@@ -155,12 +153,17 @@ contract englishAuction is smartAuction{
         
         //if exists, refund the previous winning bidder
         if(winningBidder != address(0)){
-            refundTo(winningBidder, highestBid);
+            refundTo(winningBidder, winningBid);
         }
         
-        highestBid = amount;
+        winningBid = amount;
         winningBidder = bidder;
         emit newHighestBidEvent(bidder, amount);
+    }
+    
+    function finalize() public{
+        super.finalizeConditions();
+        auctioneer.transfer(winningBid);
     }
 }
 
@@ -176,30 +179,37 @@ contract vickeryAuction is smartAuction{
     uint bidWithdrawLength; //block time length of the subphase bid withdrawal, on which bidders can withdraw their bids, by paying a fee (PART OF BIDDING TIME)
     uint bidOpeningLength; //block time length of the opening phase, on which all bidders should reveal their bids (IT IS THE POST BIDDING PHASE RENAMED)
     
+    uint price; //amount that the winner has to pay (the second highest bid)
     mapping(address => bytes32) commits; //keep track of the hashed committments
     
     constructor(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
                     smartAuction(_reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
         
         deposit = _deposit; 
+        price = _reservePrice;
+        
         bidCommitLength = _bidCommitLength;
         bidWithdrawLength = _bidWithdrawLength;
         bidOpeningLength = _bidOpeningLength;
     }
     
-    function bid(uint32 nonce, uint bidCommit) payable public{
+    //commit using an hashed message to ensure the bid's secrecy
+    function bid(bytes32 hash) payable public{
         super.bidConditions();
         
         require((creationBlock + preBiddingLength + bidCommitLength) - 1 >= block.number, "It is not bid committment time anymore!");
         uint amount = msg.value;
         address bidder = msg.sender;
         require(commits[bidder] == 0, "You have already made a committment!");
-        require(amount >= deposit, "Amount is not enough: minimum deposit required!");
+        require(amount >= deposit, "Deposit amount is not enough!");
         
         bidders[bidder] = amount; //saving the deposit requirement
-        
-        bytes32 hash = keccak256(nonce, " ", bidCommit); //because sha3 is deprecated!
-        commits[bidder] = hash;
+        commits[bidder] = hash; //saving the hashed committment
+    }
+    
+    //Handy method used to generate and send hashed committment
+    function simple_bid(uint32 nonce, uint bidAmount) payable public{
+        bid(keccak256(nonce, bidAmount));
     }
     
     function withdraw() public returns (bool){
@@ -218,9 +228,34 @@ contract vickeryAuction is smartAuction{
         
         uint amount = msg.value;
         address bidder = msg.sender;
-        bytes32 hash = keccak256(nonce, " ", amount);
-        require(hash == commits[bidder], "The committment doesn't match with the amount sended!");
+        bytes32 hash = keccak256(nonce, amount); //sha3 is deprecated!
+        require(hash == commits[bidder], "The amount doesn't match with the committment!");
         
+        refundTo(bidder, bidders[bidder]); //refund full deposit
+        bidders[bidder] += amount; //add bid amount
         
+        //check if you won
+        if(amount > winningBid){
+            winningBid = amount;
+            winningBidder = bidder;
+            emit newHighestBidEvent(bidder, amount);
+        }
+        else{
+            if(amount > price){ //check if your bid will be the final price
+                price = amount;
+            }
+            
+            refundTo(bidder, bidders[bidder]); //refund bid amount
+        }
+    }
+    
+    //give back the remaining to the winning bidder
+    function finalize() public{
+        super.finalizeConditions();
+        auctioneer.transfer(price);
+        
+        bidders[winningBidder] -= price;
+        
+        refundTo(winningBidder, bidders[winningBidder]);
     }
 }
