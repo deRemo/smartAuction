@@ -10,11 +10,11 @@ contract smartAuction {
     
     uint reservePrice; //the seller may decide to not sell the good if highestBid < reservePrice
     
-    enum phase {preAuction, auction, postAuction} //enum phases of the auction
-    uint startingBlock; //auction init block number
-    uint preAuctionLength; //pre auction time period, in blocks
-    uint auctionLength; //auction/bidding time period, in blocks
-    uint postAuctionLength; //post auction time period, in blocks
+    enum phase {preBidding, bidding, postBidding, end} //enum phases of the auction
+    uint creationBlock; //auction creation block number
+    uint preBiddingLength; //pre bidding time period, in blocks
+    uint biddingLength; //bidding time period, in blocks
+    uint postBiddingLength; //post bidding time period, in blocks
     
     event logEvent(string debug); //debug
     event newHighestBidEvent(address bidder, uint amount); //notify new highest bid
@@ -22,52 +22,61 @@ contract smartAuction {
     event refundEvent(address bidder, uint amount); //notify if someone get a refund
     
     //init auction instance
-    constructor(uint _preAuctionLength, uint _auctionLength, uint _postAuctionLength, uint _reservePrice) public {
-        require(_auctionLength > 0 && _reservePrice > 0, "You must specify the auction time(in block) and reserve price!");
+    constructor(uint _reservePrice, uint _preBiddingLength, uint _biddingLength, uint _postBiddingLength) public {
+        require(_biddingLength > 0 && _reservePrice > 0, "You must specify the bidding time(in block) and reserve price!");
         auctioneer = msg.sender;
-        startingBlock = block.number;
+        creationBlock = block.number;
         
-        preAuctionLength = _preAuctionLength;
-        auctionLength = _auctionLength;
-        postAuctionLength = _postAuctionLength;
+        preBiddingLength = _preBiddingLength;
+        biddingLength = _biddingLength;
+        postBiddingLength = _postBiddingLength;
         
         reservePrice = _reservePrice;
     }
     
     //determine the phase of the auction
-    function currentPhase() public returns (phase _currentPhase) {
+    function currentPhase() public returns (phase) {
         uint currentBlock = block.number;
-        //require((startingBlock + preAuctionLength + auctionLength + postAuctionLength) > currentBlock, "The auction is already concluded!");
+        //require((creationBlock + preBiddingLength + biddingLength + postBiddingLength) > currentBlock, "The auction is already concluded!");
         
-        if((startingBlock + preAuctionLength) - 1 >= currentBlock){
+        if((creationBlock + preBiddingLength) - 1 >= currentBlock){
             emit logEvent("pre");
-            return phase.preAuction;
+            return phase.preBidding;
         }
-        else if((startingBlock + preAuctionLength + auctionLength) - 1 >= currentBlock){
-            emit logEvent("au");
-            return phase.auction;
+        else if((creationBlock + preBiddingLength + biddingLength) - 1 >= currentBlock){
+            emit logEvent("bd");
+            return phase.bidding;
+        }
+        else if((creationBlock + preBiddingLength + biddingLength + postBiddingLength) - 1 >= currentBlock){
+            emit logEvent("post");
+            return phase.postBidding;
         }
         else{
-            emit logEvent("post");
-            return phase.postAuction;
+            emit logEvent("end");
+            return phase.end;
         }
     }
     
-    //default bid method: the winning bidder is the one with the highest bid
-    function bid() payable public;
-    
-    //public function used by a bidder to withdraw his money
-    function withdraw() public returns (bool) {
-        address bidder = msg.sender;
-        uint amount = bidders[bidder];
-        
-        return refundTo(bidder, amount);
+    //default bid conditions
+    function bidConditions() internal{
+        phase _currentPhase = currentPhase();
+        require(_currentPhase != phase.preBidding, "It is not bidding time yet!");
+        require(_currentPhase != phase.postBidding || currentPhase() != phase.end, "Auction already ended!");
     }
     
-    //private function, used to return a certain amount of money to a certan bidder
+    //default withdraw conditions
+    function withdrawConditions() internal{
+        phase _currentPhase = currentPhase();
+        require(_currentPhase != phase.bidding, "You can't withdraw during bidding time!");
+    }
+    
+    //internal function, used to refund the bidder
+    //WARNING: if amount is lower than how much the bidder spent, the leftovers remains on the contract for ever!
+    //WARNING: DON'T call it directly, but use it in another function that does all the condition checks instead!
     function refundTo(address bidder, uint amount) internal returns (bool){
         if(amount > 0){
             bidders[bidder] = 0;
+            
             if(!bidder.send(amount)){
                 bidders[bidder] = amount;
             
@@ -81,9 +90,9 @@ contract smartAuction {
     
     //default finalize method:transfer the money of the winning bidder to the auctioneer's wallet
     function finalize() payable public{
-        require(currentPhase() == phase.postAuction, "Auction hasn't ended yet");
+        require(currentPhase() == phase.end, "Auction hasn't ended yet");
         require(!finalized, "The payment has already been finalized");
-        require(msg.sender == winningBidder, "You are not the winner!");
+        require(msg.sender == winningBidder || msg.sender == auctioneer, "You are not the winner or the auctioneer!");
         require(highestBid >= reservePrice, "reserve price minimum not satisfied!");
         
         finalized = true;
@@ -93,14 +102,19 @@ contract smartAuction {
     }
 }
 
+/* 
+pre bidding phase: grace period, length = 30
+bidding phase: buyout then bids, length depends on the unchalleged time
+post bidding phase: not used, length = 0
+end phase: finalize
+*/
 contract englishAuction is smartAuction{
-    uint buyOutPrice; //If someone pays this amount during the preAuction phase, the good is sold immediately without starting the auction
-    uint increment; //The minimum amout you have to add to current highestBid in order to be the winning bidder
-    uint unchallegedLength; //Number of blocks (including the current one) a bid must be unchallenged before it is considered the final winner
+    uint buyOutPrice; //If someone pays this amount before any bid in the bidding time, the good is sold immediately without starting the auction
+    uint increment; //The minimum amount you have to add to current highestBid in order to be the winning bidder
+    uint unchallegedLength; //Number of blocks (excluding the current one) a bid must be unchallenged before it is considered the winning bid
     
-    constructor(uint _preAuctionLength, uint _auctionLength, uint _postAuctionLength, uint _reservePrice, uint _buyOutPrice, uint _increment, uint _unchallegedLength) 
-                    smartAuction(_preAuctionLength, _auctionLength, _postAuctionLength, _reservePrice) public {
-        require(_unchallegedLength <= _auctionLength, "the unchallegedLength must be lower than the auctionLength!");
+    constructor(uint _reservePrice, uint _buyOutPrice, uint _unchallegedLength, uint _increment) 
+                    smartAuction( _reservePrice, 0, _unchallegedLength, 0) public {
         buyOutPrice = _buyOutPrice;
         increment = _increment;
         unchallegedLength = _unchallegedLength;
@@ -109,39 +123,104 @@ contract englishAuction is smartAuction{
     }
     
     function buyOut() payable public {
-        require(currentPhase() == phase.preAuction, "Auction already started, you can't buy out anymore!");
-        uint amount = msg.value;
-        require(amount >= buyOutPrice, "Your amount is not enough!");
+        super.bidConditions(); //it is like a bid that always win
         
-        //PAY
+        require(buyOutPrice != 0, "NO buy out price or someone else already bidded!");
+        uint amount = msg.value;
+        require(amount >= buyOutPrice, "Your amount is not enough to buy out!");
+        
+        //pay!
         highestBid = amount;
         winningBidder = msg.sender;
         
         //The auction can be considered over, because the buyout condition is satisfied
-        preAuctionLength=0;
-        auctionLength=0;
+        preBiddingLength=0;
+        biddingLength=0;
     }
     
     function bid() payable public{
-        require(currentPhase() != phase.preAuction, "It is not bidding time yet!");
-        require(currentPhase() != phase.postAuction, "Auction already ended!");
+        super.bidConditions();
         
         address bidder = msg.sender;
         uint amount = msg.value;
         require(amount > highestBid, "There is an higher bid already!");
         require(amount >= highestBid + increment, "You have to pay a minimum increment amount!");
         
+        biddingLength += block.number - creationBlock + 1; //increment bidding time in order to have the same unchallegedLength for each bid
+        
+        //no more chances of buying out the good
+        if(buyOutPrice != 0){
+            buyOutPrice = 0;
+        }
+        
         //if exists, refund the previous winning bidder
         if(winningBidder != address(0)){
             refundTo(winningBidder, highestBid);
-        }
-
-        if(highestBid != 0){
-            bidders[bidder] += amount;
         }
         
         highestBid = amount;
         winningBidder = bidder;
         emit newHighestBidEvent(bidder, amount);
+    }
+}
+
+/* 
+pre bidding phase: grace period, length = 30
+bidding phase: bid commit and withdraw
+post bidding phase: bid opening
+end phase: finalize
+*/
+contract vickeryAuction is smartAuction{
+    uint deposit; //deposit requirement for committing a bid
+    uint bidCommitLength; //block time length of the subphase bid committment, on which bidders submit a commitment to their bid (PART OF BIDDING TIME)
+    uint bidWithdrawLength; //block time length of the subphase bid withdrawal, on which bidders can withdraw their bids, by paying a fee (PART OF BIDDING TIME)
+    uint bidOpeningLength; //block time length of the opening phase, on which all bidders should reveal their bids (IT IS THE POST BIDDING PHASE RENAMED)
+    
+    mapping(address => bytes32) commits; //keep track of the hashed committments
+    
+    constructor(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
+                    smartAuction(_reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
+        
+        deposit = _deposit; 
+        bidCommitLength = _bidCommitLength;
+        bidWithdrawLength = _bidWithdrawLength;
+        bidOpeningLength = _bidOpeningLength;
+    }
+    
+    function bid(uint32 nonce, uint bidCommit) payable public{
+        super.bidConditions();
+        
+        require((creationBlock + preBiddingLength + bidCommitLength) - 1 >= block.number, "It is not bid committment time anymore!");
+        uint amount = msg.value;
+        address bidder = msg.sender;
+        require(commits[bidder] == 0, "You have already made a committment!");
+        require(amount >= deposit, "Amount is not enough: minimum deposit required!");
+        
+        bidders[bidder] = amount; //saving the deposit requirement
+        
+        bytes32 hash = keccak256(nonce, " ", bidCommit); //because sha3 is deprecated!
+        commits[bidder] = hash;
+    }
+    
+    function withdraw() public returns (bool){
+        super.bidConditions(); //Because in this case the withdraw require the same conditions of bids!
+        require((creationBlock + preBiddingLength + bidCommitLength) - 1 < block.number, "It is still bid committment time!");
+        
+        address bidder = msg.sender;
+        uint amount = bidders[bidder]/2; //they pay half deposit as a fee
+        commits[bidder] = bytes32(0); //remove committment
+        
+        return refundTo(bidder, amount);
+    }
+    
+    function reveal(uint32 nonce) payable public{
+        require(currentPhase() == phase.postBidding, "It is not reveal time yet");
+        
+        uint amount = msg.value;
+        address bidder = msg.sender;
+        bytes32 hash = keccak256(nonce, " ", amount);
+        require(hash == commits[bidder], "The committment doesn't match with the amount sended!");
+        
+        
     }
 }
