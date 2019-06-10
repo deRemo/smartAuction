@@ -1,13 +1,12 @@
 pragma solidity ^0.4.22;
 
 contract smartAuction {
-    address public auctioneer; //the seller
+    address auctioneer; //the seller
     mapping(address => uint) bidders; //maps bidders to the amount they spent
     bool finalized; //set at true when the payment is finalized, to avoid multiple unwanted transfers 
     
     uint winningBid;
     address winningBidder;
-    
     uint reservePrice; //the seller may decide to not sell the good if highestBid < reservePrice
     
     enum phase {preBidding, bidding, postBidding, end} //enum phases of the auction
@@ -16,7 +15,8 @@ contract smartAuction {
     uint biddingLength; //bidding time period, in blocks
     uint postBiddingLength; //post bidding time period, in blocks
     
-    event logEvent(string debug); //debug
+    event logEvent(string str); //debug
+    event testEvent(uint value); //debug
     event newHighestBidEvent(address bidder, uint amount); //notify new highest bid
     event finalizeEvent(address bidder, uint amount); //notify that the auction has ended and the good has been payed
     event refundEvent(address bidder, uint amount); //notify if someone get a refund
@@ -35,68 +35,71 @@ contract smartAuction {
     }
     
     //determine the phase of the auction
-    function currentPhase() public returns (phase) {
+    function getCurrentPhase() public view returns (phase) {
         uint currentBlock = block.number;
         //require((creationBlock + preBiddingLength + biddingLength + postBiddingLength) > currentBlock, "The auction is already concluded!");
         
         if((creationBlock + preBiddingLength) - 1 >= currentBlock){
-            emit logEvent("pre");
             return phase.preBidding;
         }
         else if((creationBlock + preBiddingLength + biddingLength) - 1 >= currentBlock){
-            emit logEvent("bd");
             return phase.bidding;
         }
         else if((creationBlock + preBiddingLength + biddingLength + postBiddingLength) - 1 >= currentBlock){
-            emit logEvent("post");
             return phase.postBidding;
         }
         else{
-            emit logEvent("end");
             return phase.end;
         }
     }
     
     //default bid conditions
-    function bidConditions() internal{
-        phase _currentPhase = currentPhase();
+    function bidConditions() view internal{
+        phase _currentPhase = getCurrentPhase();
         require(_currentPhase != phase.preBidding, "It is not bidding time yet!");
-        require(_currentPhase != phase.postBidding || currentPhase() != phase.end, "Auction already ended!");
+        require(_currentPhase != phase.postBidding || _currentPhase != phase.end, "Auction already ended!");
     }
     
     //default withdraw conditions
-    function withdrawConditions() internal{
-        phase _currentPhase = currentPhase();
+    function withdrawConditions() view internal{
+        phase _currentPhase = getCurrentPhase();
         require(_currentPhase != phase.bidding, "You can't withdraw during bidding time!");
     }
     
     //internal function, used to refund the bidder
-    //WARNING: if amount is lower than how much the bidder spent, the leftovers remains on the contract for ever!
-    //WARNING: DON'T call it directly, but use it in another function that does all the condition checks instead!
+    //Note: if amount is lower than how much the bidder spent, the leftovers remains on the contract as a fee!
     function refundTo(address bidder, uint amount) internal returns (bool){
-        require(amount > 0, "you are refunding nothing!");
+        require(amount > 0, "amount needs to be higher than zero!");
         require(amount <= bidders[bidder], "you don't have to refund that much!");
         
+        uint total = bidders[bidder];
+        bidders[bidder] = 0;
         if(!bidder.send(amount)){
-            bidders[bidder] = amount;
+            bidders[bidder] = total;
         
             return false;
         }
-        else bidders[bidder] = 0;
         
         emit refundEvent(bidder, amount);
         return true;
     }
     
     //default finalize conditions
-    function finalizeConditions() payable public{
-        require(currentPhase() == phase.end, "Auction hasn't ended yet");
+    function finalizeConditions() internal{
+        require(getCurrentPhase() == phase.end, "Auction hasn't ended yet");
         require(!finalized, "The payment has already been finalized");
         require(msg.sender == winningBidder || msg.sender == auctioneer, "You are not the winner or the auctioneer!");
         require(winningBid >= reservePrice, "reserve price minimum not satisfied!");
         
         finalized = true;
-        emit finalizeEvent(winningBidder, winningBid);
+    }
+    
+    function getAuctioneer() public view returns(address){
+        return auctioneer;
+    }
+    
+    function getBiddingLength() public view returns(uint){
+        return biddingLength;
     }
 }
 
@@ -111,13 +114,15 @@ contract englishAuction is smartAuction{
     uint increment; //The minimum amount you have to add to current highestBid in order to be the winning bidder
     uint unchallegedLength; //Number of blocks (excluding the current one) a bid must be unchallenged before it is considered the winning bid
     
+    event buyOutEvent(address bidder, uint amount); //notify that someone buy out the good
+    
     constructor(uint _reservePrice, uint _buyOutPrice, uint _unchallegedLength, uint _increment) 
                     smartAuction( _reservePrice, 0, _unchallegedLength, 0) public {
         buyOutPrice = _buyOutPrice;
-        increment = _increment;
+        increment = _increment * (10**18); //convert in ether
         unchallegedLength = _unchallegedLength;
         
-        winningBid = reservePrice;
+        winningBid = reservePrice * (10**18); //convert in ether
     }
     
     function buyOut() payable public {
@@ -134,6 +139,8 @@ contract englishAuction is smartAuction{
         //The auction can be considered over, because the buyout condition is satisfied
         preBiddingLength=0;
         biddingLength=0;
+        
+        emit buyOutEvent(winningBidder, winningBid);
     }
     
     function bid() payable public{
@@ -144,7 +151,7 @@ contract englishAuction is smartAuction{
         require(amount > winningBid, "There is an higher bid already!");
         require(amount >= winningBid + increment, "You have to pay a minimum increment amount!");
         
-        biddingLength += block.number - creationBlock + 1; //increment bidding time in order to have the same unchallegedLength for each bid
+        biddingLength += unchallegedLength - (biddingLength - ((block.number - creationBlock) + 1)); //increment bidding time in order to have the same unchallegedLength for each bid
         
         //no more chances of buying out the good
         if(buyOutPrice != 0){
@@ -158,12 +165,15 @@ contract englishAuction is smartAuction{
         
         winningBid = amount;
         winningBidder = bidder;
+        bidders[winningBidder] = winningBid;
         emit newHighestBidEvent(bidder, amount);
     }
     
     function finalize() public{
         super.finalizeConditions();
         auctioneer.transfer(winningBid);
+        
+        emit finalizeEvent(winningBidder, winningBid);
     }
 }
 
@@ -185,8 +195,8 @@ contract vickeryAuction is smartAuction{
     constructor(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
                     smartAuction(_reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
         
-        deposit = _deposit; 
-        price = _reservePrice;
+        deposit = _deposit * (10**18); //convert in ether
+        price = _reservePrice * (10**18); //convert in ether
         
         bidCommitLength = _bidCommitLength;
         bidWithdrawLength = _bidWithdrawLength;
@@ -196,35 +206,35 @@ contract vickeryAuction is smartAuction{
     //commit using an hashed message to ensure the bid's secrecy
     function bid(bytes32 hash) payable public{
         super.bidConditions();
-        
         require((creationBlock + preBiddingLength + bidCommitLength) - 1 >= block.number, "It is not bid committment time anymore!");
-        uint amount = msg.value;
+        
+        uint depositAmount = msg.value;
         address bidder = msg.sender;
         require(commits[bidder] == 0, "You have already made a committment!");
-        require(amount >= deposit, "Deposit amount is not enough!");
+        require(depositAmount >= deposit, "Deposit amount is not enough!");
         
-        bidders[bidder] = amount; //saving the deposit requirement
+        bidders[bidder] = depositAmount; //saving the deposit requirement
         commits[bidder] = hash; //saving the hashed committment
     }
     
     //Handy method used to generate and send hashed committment
     function simple_bid(uint32 nonce, uint bidAmount) payable public{
-        bid(keccak256(nonce, bidAmount));
+        bid(keccak256(nonce, bidAmount * (10**18))); //convert in ether
     }
     
     function withdraw() public returns (bool){
         super.bidConditions(); //Because in this case the withdraw require the same conditions of bids!
-        require((creationBlock + preBiddingLength + bidCommitLength) - 1 < block.number, "It is still bid committment time!");
+        require((creationBlock + preBiddingLength + bidCommitLength + bidWithdrawLength) - 1 >= block.number, "It is still bid committment time!");
         
         address bidder = msg.sender;
-        uint amount = bidders[bidder]/2; //they pay half deposit as a fee
+        uint refundAmount = bidders[bidder]/2; //they pay half deposit as a fee
         commits[bidder] = bytes32(0); //remove committment
         
-        return refundTo(bidder, amount);
+        return refundTo(bidder, refundAmount);
     }
     
     function reveal(uint32 nonce) payable public{
-        require(currentPhase() == phase.postBidding, "It is not reveal time yet");
+        require(getCurrentPhase() == phase.postBidding, "It is not reveal time yet");
         
         uint amount = msg.value;
         address bidder = msg.sender;
@@ -234,7 +244,7 @@ contract vickeryAuction is smartAuction{
         refundTo(bidder, bidders[bidder]); //refund full deposit
         bidders[bidder] += amount; //add bid amount
         
-        //check if you won
+        //dinamically set the winner and the price
         if(amount > winningBid){
             winningBid = amount;
             winningBidder = bidder;
@@ -257,5 +267,6 @@ contract vickeryAuction is smartAuction{
         bidders[winningBidder] -= price;
         
         refundTo(winningBidder, bidders[winningBidder]);
+        emit finalizeEvent(winningBidder, price);
     }
 }
