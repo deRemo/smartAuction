@@ -103,15 +103,13 @@ contract smartAuction {
         
         emit refundEvent(bidder, amount);
         return true;
-    }
-    */
+    }*/
     
     //default finalize conditions
     function finalizeConditions() internal{
         require(getCurrentPhase() == phase.end, "Auction hasn't ended yet");
         require(!finalized, "The payment has already been finalized");
         require(msg.sender == winningBidder || msg.sender == auctioneer, "You are not the winner or the auctioneer!");
-        require(winningBid >= reservePrice, "reserve price minimum not satisfied!");
         
         finalized = true;
     }
@@ -214,11 +212,13 @@ contract vickeryAuction is smartAuction{
     uint price; //amount that the winner has to pay (the second highest bid)
     mapping(address => bytes32) commits; //keep track of the hashed committments
     
+    event noWinner();
+    
     constructor(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
-                    smartAuction(_reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
+                    smartAuction(_reservePrice * (10**18), 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public { //convert in ether
         
         deposit = _deposit * (10**18); //convert in ether
-        price = _reservePrice * (10**18); //convert in ether
+        //price = _reservePrice * (10**18); //convert in ether
         
         bidCommitLength = _bidCommitLength;
         bidWithdrawLength = _bidWithdrawLength;
@@ -257,6 +257,7 @@ contract vickeryAuction is smartAuction{
     
     function reveal(uint32 nonce) payable public{
         require(getCurrentPhase() == phase.postBidding, "It is not reveal time yet");
+        require(commits[msg.sender] != bytes32(0), "You didn't bid in this auction!");
         
         uint amount = msg.value;
         address bidder = msg.sender;
@@ -268,6 +269,12 @@ contract vickeryAuction is smartAuction{
         
         //dinamically set the winner and the price
         if(amount > winningBid){
+            
+            if(winningBidder != address(0)){ //check if there was already a winner: if so, refund him
+                refundTo(winningBidder, winningBid); //refund bid amount
+                price = winningBid;
+            }
+            
             winningBid = amount;
             winningBidder = bidder;
             emit newHighestBidEvent(bidder, amount);
@@ -284,11 +291,18 @@ contract vickeryAuction is smartAuction{
     //give back the remaining to the winning bidder
     function finalize() public{
         super.finalizeConditions();
-        auctioneer.transfer(price);
         
-        bidders[winningBidder] -= price;
-        
-        refundTo(winningBidder, bidders[winningBidder]);
-        emit finalizeEvent(winningBidder, price);
+        if(winningBid >= reservePrice){
+            auctioneer.transfer(price);
+            
+            bidders[winningBidder] -= price;
+            
+            refundTo(winningBidder, bidders[winningBidder]);
+            emit finalizeEvent(winningBidder, price);
+        }
+        else{
+            emit noWinner();
+            refundTo(winningBidder, winningBid);
+        }
     }
 }
