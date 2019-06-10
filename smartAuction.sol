@@ -69,6 +69,27 @@ contract smartAuction {
     //internal function, used to refund the bidder
     //Note: if amount is lower than how much the bidder spent, the leftovers remains on the contract as a fee!
     function refundTo(address bidder, uint amount) internal returns (bool){
+        //require(amount > 0, "amount needs to be higher than zero!");
+        //require(amount <= bidders[bidder], "you don't have to refund that much!");
+        uint total = bidders[bidder];
+        
+        if(total > 0){
+            bidders[bidder] = 0;
+            if(amount > 0 && amount <= total){
+                if(!bidder.send(amount)){
+                    bidders[bidder] = total;
+                
+                    return false;
+                }
+                
+                emit refundEvent(bidder, amount);
+            }
+        }
+        
+        return true;
+    }
+    /*
+    function refundTo(address bidder, uint amount) internal returns (bool){
         require(amount > 0, "amount needs to be higher than zero!");
         require(amount <= bidders[bidder], "you don't have to refund that much!");
         
@@ -83,6 +104,7 @@ contract smartAuction {
         emit refundEvent(bidder, amount);
         return true;
     }
+    */
     
     //default finalize conditions
     function finalizeConditions() internal{
