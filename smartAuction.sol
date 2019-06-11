@@ -20,6 +20,7 @@ contract smartAuction {
     event newHighestBidEvent(address bidder, uint amount); //notify new highest bid
     event finalizeEvent(address bidder, uint amount); //notify that the auction has ended and the good has been payed
     event refundEvent(address bidder, uint amount); //notify if someone get a refund
+    event noWinner(); //notify if there is no winner
     
     //init auction instance
     constructor(uint _reservePrice, uint _preBiddingLength, uint _biddingLength, uint _postBiddingLength) public {
@@ -219,9 +220,12 @@ contract englishAuction is smartAuction{
     
     function finalize() public{
         super.finalizeConditions();
-        auctioneer.transfer(winningBid);
         
-        emit finalizeEvent(winningBidder, winningBid);
+        if(winningBidder != address(0) && winningBid != 0){
+            auctioneer.transfer(winningBid);
+            emit finalizeEvent(winningBidder, winningBid);
+        }
+        else emit noWinner();
     }
 }
 
@@ -239,8 +243,6 @@ contract vickeryAuction is smartAuction{
     
     uint price; //amount that the winner has to pay (the second highest bid)
     mapping(address => bytes32) commits; //keep track of the hashed committments
-    
-    event noWinner();
     
     constructor(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
                     smartAuction(_reservePrice * (10**18), 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public { //convert in ether
