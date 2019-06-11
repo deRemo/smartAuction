@@ -60,9 +60,6 @@ contract smartAuction {
         require(_currentPhase != phase.postBidding || _currentPhase != phase.end, "Auction already ended!");
     }
     
-    //bid method: not implemented in order to make the contract abstract
-    function bid() payable public;
-    
     //default withdraw conditions
     function withdrawConditions() view internal{
         phase _currentPhase = getCurrentPhase();
@@ -71,6 +68,18 @@ contract smartAuction {
     
     //internal function, used to refund the bidder
     //Note: if amount is lower than how much the bidder spent, the leftovers remains on the contract as a fee!
+    function refundTo(address bidder, uint amount) internal  {
+        require(amount > 0, "amount needs to be higher than zero!");
+        require(amount <= bidders[bidder], "you don't have to refund that much!");
+        
+        uint total = bidders[bidder];
+        if (total > 0) {
+            bidders[bidder] = 0;
+
+            bidder.transfer(amount);
+        }
+    }
+    /*
     function refundTo(address bidder, uint amount) internal returns (bool){
         //require(amount > 0, "amount needs to be higher than zero!");
         //require(amount <= bidders[bidder], "you don't have to refund that much!");
@@ -90,7 +99,7 @@ contract smartAuction {
         }
         
         return true;
-    }
+    }*/
     /*
     function refundTo(address bidder, uint amount) internal returns (bool){
         require(amount > 0, "amount needs to be higher than zero!");
@@ -117,12 +126,27 @@ contract smartAuction {
         finalized = true;
     }
     
+    //finalize method: not implemented in order to make the contract abstract
+    function finalize() public;
+    
     function getAuctioneer() public view returns(address){
         return auctioneer;
     }
     
+    function getPreBiddingLength() public view returns(uint){
+        return preBiddingLength;
+    }
+    
     function getBiddingLength() public view returns(uint){
         return biddingLength;
+    }
+    
+    function getPostBiddingLength() public view returns(uint){
+        return postBiddingLength;
+    }
+    
+    function getAuctionLength() public view returns(uint){
+        return preBiddingLength + biddingLength + postBiddingLength;
     }
 }
 
@@ -247,7 +271,7 @@ contract vickeryAuction is smartAuction{
         bid(keccak256(nonce, bidAmount * (10**18))); //convert in ether
     }
     
-    function withdraw() public returns (bool){
+    function withdraw() public {
         super.bidConditions(); //Because in this case the withdraw require the same conditions of bids!
         require((creationBlock + preBiddingLength + bidCommitLength + bidWithdrawLength) - 1 >= block.number, "It is still bid committment time!");
         
@@ -255,7 +279,7 @@ contract vickeryAuction is smartAuction{
         uint refundAmount = bidders[bidder]/2; //they pay half deposit as a fee
         commits[bidder] = bytes32(0); //remove committment
         
-        return refundTo(bidder, refundAmount);
+        refundTo(bidder, refundAmount);
     }
     
     function reveal(uint32 nonce) payable public{
