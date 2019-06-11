@@ -63,6 +63,7 @@ contract smartAuction {
     //default withdraw conditions
     function withdrawConditions() view internal{
         phase _currentPhase = getCurrentPhase();
+        require(_currentPhase != phase.preBidding, "It is not bidding time yet, so you have nothing to withdraw!");
         require(_currentPhase != phase.bidding, "You can't withdraw during bidding time!");
     }
     
