@@ -1,5 +1,6 @@
 pragma solidity ^0.4.22;
 
+//smart auction base contract
 contract smartAuction {
     address auctioneer; //the seller
     mapping(address => uint) bidders; //maps bidders to the amount they spent
@@ -16,7 +17,6 @@ contract smartAuction {
     uint postBiddingLength; //post bidding time period, in blocks
     
     event logEvent(string str); //debug
-    event testEvent(uint value); //debug
     event newHighestBidEvent(address bidder, uint amount); //notify new highest bid
     event finalizeEvent(address bidder, uint amount); //notify that the auction has ended and the good has been payed
     event refundEvent(address bidder, uint amount); //notify if someone get a refund
@@ -59,6 +59,9 @@ contract smartAuction {
         require(_currentPhase != phase.preBidding, "It is not bidding time yet!");
         require(_currentPhase != phase.postBidding || _currentPhase != phase.end, "Auction already ended!");
     }
+    
+    //bid method: not implemented in order to make the contract abstract
+    function bid() payable public;
     
     //default withdraw conditions
     function withdrawConditions() view internal{
