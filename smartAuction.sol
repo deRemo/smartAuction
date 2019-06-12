@@ -269,11 +269,11 @@ contract vickeryAuction is smartAuction{
         commits[bidder] = hash; //saving the hashed committment
     }
     
-    //Handy method used to generate and send hashed committment
-    function simple_bid(uint32 nonce, uint bidAmount) payable public{
+    //Handy method used to generate and send hashed commitment
+    function test_bid(uint32 nonce, uint bidAmount) payable public{
         bid(keccak256(nonce, bidAmount * (10**18))); //convert in ether
     }
-    
+ 
     function withdraw() public {
         super.bidConditions(); //Because in this case the withdraw require the same conditions of bids!
         require((creationBlock + preBiddingLength + bidCommitLength + bidWithdrawLength) - 1 >= block.number, "It is still bid committment time!");
