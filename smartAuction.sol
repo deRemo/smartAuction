@@ -24,7 +24,7 @@ contract smartAuction {
     
     //init auction instance
     constructor(uint _reservePrice, uint _preBiddingLength, uint _biddingLength, uint _postBiddingLength) public {
-        require(_biddingLength > 0 && _reservePrice > 0, "You must specify the bidding time(in block) and reserve price!");
+        require(_biddingLength > 0, "You must specify the bidding time(in block) and reserve price!");
         auctioneer = msg.sender;
         creationBlock = block.number;
         
@@ -122,7 +122,7 @@ contract smartAuction {
     //default finalize conditions
     function finalizeConditions() internal{
         require(getCurrentPhase() == phase.end, "Auction hasn't ended yet");
-        require(!finalized, "The payment has already been finalized");
+        require(!finalized, "Auction has ended and the payment has already been finalized");
         require(msg.sender == winningBidder || msg.sender == auctioneer, "You are not the winner or the auctioneer!");
         
         finalized = true;
@@ -176,7 +176,7 @@ contract englishAuction is smartAuction{
         increment = _increment * (10**18); //convert in ether
         unchallegedLength = _unchallegedLength;
         
-        winningBid = reservePrice * (10**18); //convert in ether
+        winningBid = (reservePrice - _increment) * (10**18); //convert in ether //this way, the initial bid must be the reservePrice or higher!
     }
     
     function buyOut() payable public {
@@ -225,6 +225,7 @@ contract englishAuction is smartAuction{
     
     function finalize() public{
         super.finalizeConditions();
+        //if you are here, no re-entrancy problem, because finalized has been set to true!
         
         if(winningBidder != address(0) && winningBid != 0){
             auctioneer.transfer(winningBid);
@@ -326,6 +327,7 @@ contract vickeryAuction is smartAuction{
     //give back the remaining to the winning bidder
     function finalize() public{
         super.finalizeConditions();
+        //if you are here, no re-entrancy problem, because finalized has been set to true!
         
         if(winningBid >= reservePrice){
             auctioneer.transfer(price);
