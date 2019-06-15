@@ -129,8 +129,10 @@ contract smartAuction {
     }
     
     //debug function: used to create a fake transaction
-    function wait() public{
+    function wait() public returns (phase) {
         emit logEvent("wait");
+        
+        return getCurrentPhase();
     }
     
     //finalize method: not implemented in order to make the contract abstract
@@ -282,7 +284,8 @@ contract vickeryAuction is smartAuction{
     
     function withdraw() public {
         super.bidConditions(); //Because in this case the withdraw require the same conditions of bids!
-        require((creationBlock + preBiddingLength + bidCommitLength + bidWithdrawLength) - 1 >= block.number, "It is still bid committment time!");
+        require((creationBlock + preBiddingLength + bidCommitLength) - 1 < block.number, "It is still bid committment time!");
+        require((creationBlock + preBiddingLength + bidCommitLength + bidWithdrawLength) - 1 >= block.number, "It is not withdraw time anymore!");
         
         address bidder = msg.sender;
         uint refundAmount = bidders[bidder]/2; //they pay half deposit as a fee
@@ -339,7 +342,9 @@ contract vickeryAuction is smartAuction{
         }
         else{
             emit noWinner();
-            refundTo(winningBidder, winningBid);
+            if(winningBid != 0){
+                refundTo(winningBidder, winningBid);
+            }
         }
     }
 }
