@@ -79,6 +79,7 @@ contract smartAuction {
             bidders[bidder] = 0;
 
             bidder.transfer(amount);
+            emit refundEvent(bidder, amount);
         }
     }
     /*
@@ -175,10 +176,10 @@ contract englishAuction is smartAuction{
     constructor(uint _reservePrice, uint _buyOutPrice, uint _unchallegedLength, uint _increment) 
                     smartAuction( _reservePrice, 0, _unchallegedLength, 0) public {
         buyOutPrice = _buyOutPrice;
-        increment = _increment * (10**18); //convert in ether
+        increment = _increment; 
         unchallegedLength = _unchallegedLength;
         
-        winningBid = (reservePrice - _increment) * (10**18); //convert in ether //this way, the initial bid must be the reservePrice or higher!
+        winningBid = reservePrice;
     }
     
     function buyOut() payable public {
@@ -253,10 +254,8 @@ contract vickeryAuction is smartAuction{
     mapping(address => bytes32) commits; //keep track of the hashed committments
     
     constructor(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
-                    smartAuction(_reservePrice * (10**18), 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public { //convert in ether
-        
-        deposit = _deposit * (10**18); //convert in ether
-        //price = _reservePrice * (10**18); //convert in ether
+                    smartAuction(_reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
+        deposit = _deposit;
         
         bidCommitLength = _bidCommitLength;
         bidWithdrawLength = _bidWithdrawLength;
@@ -279,7 +278,7 @@ contract vickeryAuction is smartAuction{
     
     //Handy method used to generate and send hashed committment
     function simple_bid(uint32 nonce, uint bidAmount) payable public{
-        bid(keccak256(nonce, bidAmount * (10**18))); //convert in ether
+        bid(keccak256(nonce, bidAmount));
     }
     
     function withdraw() public {
