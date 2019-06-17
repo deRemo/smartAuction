@@ -332,6 +332,10 @@ contract vickeryAuction is smartAuction{
         //if you are here, no re-entrancy problem, because finalized has been set to true!
         
         if(winningBid >= reservePrice){
+            if(price == 0){ //check if there was one bidder only
+                price = reservePrice;
+            }
+            
             auctioneer.transfer(price);
             
             bidders[winningBidder] -= price;
