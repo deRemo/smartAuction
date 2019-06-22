@@ -1,2 +1,2 @@
-./dApp/node_modules/
-./dApp/build/
+./dApp/node_modules/*
+./dApp/build/*
