@@ -17,7 +17,7 @@ contract vickeryAuction is smartAuction{
     mapping(address => bytes32) commits; //keep track of the hashed committments
     
     constructor(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
-                    smartAuction(_reservePrice, 20, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
+                    smartAuction(_reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
         deposit = _deposit;
         
         bidCommitLength = _bidCommitLength;
