@@ -74,6 +74,19 @@ App = {
 			console.log(len);
         });
 	},
+
+	bid: function() {
+		const bidAmount = document.getElementById("bidField").value;
+        App.contracts["englishAuction"].deployed().then(async(instance) =>{
+			const len = await instance.bid({from: App.account, value: web3.toWei(bidAmount, 'wei')});
+		});
+	},
+
+	finalize: function() {
+        App.contracts["englishAuction"].deployed().then(async(instance) =>{
+			const len = await instance.finalize({from: App.account});
+		});
+	},
 	
 	getAuctionLength: function() {
         App.contracts["englishAuction"].deployed().then(async(instance) =>{
