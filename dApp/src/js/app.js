@@ -10,7 +10,8 @@ App = {
 	contracts: {}, // Store contract abstractions
 	web3Provider: null, // Web3 provider
 	url: 'http://localhost:7545', // Url for web3
-	
+	account: '0x0',
+
 	//Functions
 	init: function() { return App.initWeb3(); },
 	initWeb3: function() { /* initialize Web3 */ 
@@ -33,6 +34,15 @@ App = {
 	},
 
 	initContract: function() {/* Upload the contract's */ 
+		 // Get current account
+		 web3.eth.getCoinbase(function(err, account) {
+            if(err == null) {
+                App.account = account;
+                console.log(account);
+                $("#accountId").html("Account:" + account);
+            }
+		});
+		
 		$.getJSON('englishAuction.json').done(function(c) {
 			App.contracts["englishAuction"] = TruffleContract(c);
 			App.contracts["englishAuction"].setProvider(App.web3Provider);
@@ -67,6 +77,14 @@ App = {
 		});
 	},
 	
+	deploy: function(){
+			App.contracts["englishAuction"].new(3,3,3,3,{from: App.account}).then(instance => {
+				console.log('contract deployed');
+			}).catch(err => {
+				console.log('error: contract not deployed', err);
+			});
+	},
+
 	getBiddingLength: function() {
         App.contracts["englishAuction"].deployed().then(async(instance) =>{
 
@@ -77,6 +95,7 @@ App = {
 
 	bid: function() {
 		const bidAmount = document.getElementById("bidField").value;
+		
         App.contracts["englishAuction"].deployed().then(async(instance) =>{
 			const len = await instance.bid({from: App.account, value: web3.toWei(bidAmount, 'wei')});
 		});
