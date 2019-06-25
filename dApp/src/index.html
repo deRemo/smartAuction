@@ -6,11 +6,13 @@
 <script src="js/app.js"></script>
 
 <!-- Rest of the webpage -->
+<h1 id="accountId"></h1>
 <div> Seller part </div>
 <input id="deployButton" type="button" value="deploy!" onclick="App.deploy();" />
 <div> Bidder part </div>
 <input id="bidField" type="text" value="">
 <input id="bidButton" type="button" value="bid!" onclick="App.bid();" />
+<input id="waitButton" type="button" value="wait" onclick="App.wait();" />
 <input id="finalizeButton" type="button" value="finalize" onclick="App.finalize();" />
 <input id="biddingLength" type="button" value="bidding Length" onclick="App.getBiddingLength();" />
 <input id="auctioneer" type="button" value="auctioneer" onclick="App.getAuctioneer();" />

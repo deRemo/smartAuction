@@ -39,7 +39,7 @@ App = {
             if(err == null) {
                 App.account = account;
                 console.log(account);
-                $("#accountId").html("Account:" + account);
+                $("#accountId").html("Account Address: " + account); //accountId is a h1
             }
 		});
 		
@@ -68,7 +68,7 @@ App = {
 	},
 
 	render: function() { /* Render page */
-		// Retrieve contract instance
+		// Retrieve contract instance to retrieve the contract instance
 		App.contracts["englishAuction"].deployed().then(async(instance) =>{
 			//Get auctioneer address
 			const au = await instance.getAuctioneer();
@@ -79,7 +79,13 @@ App = {
 	
 	deploy: function(){
 			App.contracts["englishAuction"].new(3,3,3,3,{from: App.account}).then(instance => {
-				console.log('contract deployed');
+				console.log('contract deployed at address '+ instance.address);
+
+				instance.defaults({
+						from: App.account,
+						gas: 4712388,
+						gasPrice: 100000000000
+					});
 			}).catch(err => {
 				console.log('error: contract not deployed', err);
 			});
@@ -98,6 +104,13 @@ App = {
 		
         App.contracts["englishAuction"].deployed().then(async(instance) =>{
 			const len = await instance.bid({from: App.account, value: web3.toWei(bidAmount, 'wei')});
+		});
+	},
+
+	wait: function() {
+        App.contracts["englishAuction"].deployed().then(async(instance) =>{
+			const len = await instance.wait({from: App.account});
+			console.log("waiting..");
 		});
 	},
 
