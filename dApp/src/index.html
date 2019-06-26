@@ -2,7 +2,8 @@
 <script src="js/web3.min.js"></script>
 <script src="js/truffle-contract.js"></script>
 
-<!-- App script -->
+<!-- webpage methods and App scripts -->
+<script src="js/webpageHandlers.js"></script>
 <script src="js/app.js"></script>
 
 <!-- Rest of the webpage -->
@@ -12,10 +13,18 @@
 <input id="deployButton" type="button" value="deploy!" onclick="App.deploy();" />
 
 <h2> Bidder part </h2>
-<div id="radioButtonList">Auctions list: </div>
+<div id>Auctions list: </div>
+<div id>
+    <select onchange="getSelectedAuction()" id="auctionList" name="auctionList">
+    </select> 
+</div>
+
 <input id="bidField" type="text" value="">
 <input id="bidButton" type="button" value="bid!" onclick="App.bid();" />
 <input id="waitButton" type="button" value="wait" onclick="App.wait();" />
 <input id="finalizeButton" type="button" value="finalize" onclick="App.finalize();" />
+
+<!-- Useless for now
 <input id="biddingLength" type="button" value="bidding Length" onclick="App.getBiddingLength();" />
 <input id="auctioneer" type="button" value="auctioneer" onclick="App.getAuctioneer();" />
+-->

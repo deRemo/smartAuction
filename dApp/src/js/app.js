@@ -45,10 +45,10 @@ App = {
 		});
 		
 		//still have to figure out how to use it
-		/*$.getJSON('smartAuctionFactory.json').done(function(c) {
+		$.getJSON('smartAuctionFactory.json').done(function(c) {
 			App.contracts["smartAuctionFactory"] = TruffleContract(c);
 			App.contracts["smartAuctionFactory"].setProvider(App.web3Provider);
-		});*/
+		});
 
 		$.getJSON('englishAuction.json').done(function(c) {
 			App.contracts["englishAuction"] = TruffleContract(c);
@@ -68,8 +68,7 @@ App = {
 	listenForEvents: function() { /* Activate event listeners */ 
 		App.contracts["englishAuction"].deployed().then(async (instance) => {
 			web3.eth.getBlockNumber(function (error, block) {
-
-				instance.events.noWinner().on('data', function (event) {
+				instance.noWinner().on('data', function (event) {
 					$("#eventId").html("Event catched!");
 				
 					console.log("Event catched");
@@ -92,18 +91,22 @@ App = {
 	},
 	
 	deploy: function(){
+		/*App.contracts["smartAuctionFactory"].deployed().then(async(instance) =>{
+			const auctionAddr = await instance.deployEnglishAuction(3,3,3,3);
+			console.log(auctionAddr);
+			App.contracts["englishAuction"].at(auctionAddr).then(async(instance) => {
+				const bidded = await instance.bid({from: App.account, value: web3.toWei("10", 'wei')});
+				console.log("bidded " + bidAmount + " wei at auction " + auctionAddr);
+			});
+		});*/
+		
 		App.contracts["englishAuction"].new(3,3,3,3,{from: App.account}).then(instance => {
 			console.log('contract deployed at address '+ instance.address);
 
-			//get contract instance from address
-			App.contracts["englishAuction"].at(instance.address).then(instance2 => {
-				instance2.bid({from: App.account, value: web3.toWei('10', 'ether')});
-			});
+			addAuction(instance.address);
 		}).catch(err => {
 			console.log('error: contract not deployed', err);
 		});
-
-		createRadioElement("x", false);
 	},
 
 	getBiddingLength: function() {
@@ -116,10 +119,15 @@ App = {
 
 	bid: function() {
 		const bidAmount = document.getElementById("bidField").value;
-		
-        App.contracts["englishAuction"].deployed().then(async(instance) =>{
-			const len = await instance.bid({from: App.account, value: web3.toWei(bidAmount, 'wei')});
+		const auctionAddr = getSelectedAuction();
+
+		App.contracts["englishAuction"].at(auctionAddr).then(async(instance) => {
+			const bidded = await instance.bid({from: App.account, value: web3.toWei(bidAmount, 'wei')});
+			console.log("bidded " + bidAmount + " wei at auction " + auctionAddr);
 		});
+        /*App.contracts["englishAuction"].deployed().then(async(instance) =>{
+			const bidded = await instance.bid({from: App.account, value: web3.toWei(bidAmount, 'wei')});
+		});*/
 	},
 
 	wait: function() {
@@ -152,30 +160,9 @@ App = {
     }
 }
 
-// Call init whenever the window loads
+// Call App init whenever the window loads
 $(function() {
 	$(window).on('load', function () {
 		App.init();
 	});
 });
-
-function createRadioElement(name, checked) {
-	var radio = document.createElement("input");
-    radio.type = "radio";
-    radio.name = "choices";
-    radio.class = "radioButtons";
-    radio.value = "test";
-	radio.id = "choice" + "test";
-	
-    var radioHtml = '<input type="radio" name="' + name + '"';
-    if ( checked ) {
-        radioHtml += ' checked="checked"';
-    }
-    radioHtml += '/>';
-
-    var radioFragment = document.createElement('div');
-    radioFragment.innerHTML = radioHtml;
-
-	$('#radioButtonList').append(radio);
-    //return radioFragment.firstChild;
-}
