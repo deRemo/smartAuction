@@ -10,7 +10,9 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "browserify": "^16.2.3",
     "lite-server": "^2.5.3",
+    "truffle-contract": "^4.0.21",
     "web3": "^1.0.0-beta.55"
   },
   "author": "",

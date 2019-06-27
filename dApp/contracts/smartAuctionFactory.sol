@@ -6,7 +6,7 @@ import "./vickeryAuction.sol";
 //NOTE: remix's default gas limit is not enough (at least 4000000 gas needed)
 contract smartAuctionFactory{
     //mapping(string => address) auctions; //keep of all the contracts deployed
-    address[] auctions;
+    address[] public auctions;
     address owner;
     
     event newEnglishAuction(address addr); //notify the deployment of a new english auction

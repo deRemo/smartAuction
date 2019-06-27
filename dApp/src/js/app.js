@@ -4,6 +4,7 @@
 //2. Init smart contracts (read json files)
 //3. Activate event listeners
 //4. Render page (call smart contract functions useful for initialization)
+const Web3 = require('web3');
 
 App = {
 	//Attributes
@@ -29,7 +30,7 @@ App = {
 				App.web3Provider = new Web3.providers.HttpProvider(App.url); // <==
 				web3 = new Web3(App.web3Provider);
 		}
-		console.log("web3 version " + web3.version.api);
+		console.log("web3 version " + web3.version);
 
 		return App.initContract(); 
 	},
@@ -68,7 +69,7 @@ App = {
 	listenForEvents: function() { /* Activate event listeners */ 
 		App.contracts["englishAuction"].deployed().then(async (instance) => {
 			web3.eth.getBlockNumber(function (error, block) {
-				instance.noWinner().on('data', function (event) {
+				instance.events.noWinner().on('data', function (event) {
 					$("#eventId").html("Event catched!");
 				
 					console.log("Event catched");
@@ -81,10 +82,17 @@ App = {
 	},
 
 	render: function() { /* Render useful information retrieved from the contracts */
-		// Retrieve contract instance to retrieve the contract instance
+		/*App.contracts["smartAuctionFactory"].deployed().then(async(instance) =>{
+			const auctions = await instance.getAuctions();
+
+			console.log(auctions);
+			$("#valueId").html("" + au);
+		});*/
+
 		App.contracts["englishAuction"].deployed().then(async(instance) =>{
 			//Get auctioneer address
 			const au = await instance.getAuctioneer();
+
 			console.log(au);
 			$("#valueId").html("" + au);
 		});
