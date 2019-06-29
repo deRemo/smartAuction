@@ -20,7 +20,7 @@ contract smartAuction {
     event newHighestBidEvent(address bidder, uint amount); //notify new highest bid
     event finalizeEvent(address bidder, uint amount); //notify that the auction has ended and the good has been payed
     event refundEvent(address bidder, uint amount); //notify if someone get a refund
-    event noWinner(); //notify if there is no winner
+    event noWinnerEvent(); //notify if there is no winner
     
     //init auction instance
     constructor(uint _reservePrice, uint _preBiddingLength, uint _biddingLength, uint _postBiddingLength) public {

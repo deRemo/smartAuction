@@ -75,6 +75,6 @@ contract englishAuction is smartAuction{
             auctioneer.transfer(winningBid);
             emit finalizeEvent(winningBidder, winningBid);
         }
-        else emit noWinner();
+        else emit noWinnerEvent();
     }
 }

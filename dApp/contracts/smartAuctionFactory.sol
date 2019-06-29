@@ -9,8 +9,8 @@ contract smartAuctionFactory{
     address[] public auctions;
     address owner;
     
-    event newEnglishAuction(address addr); //notify the deployment of a new english auction
-    event newVickeryAuction(address addr); //notify the deployment of a new vickery auction
+    event newEnglishAuctionEvent(address addr); //notify the deployment of a new english auction
+    event newVickeryAuctionEvent(address addr); //notify the deployment of a new vickery auction
 
     constructor() public {
         owner = msg.sender;
@@ -21,7 +21,7 @@ contract smartAuctionFactory{
         address addr = address(auction);
 
         auctions.push(addr);
-        emit newEnglishAuction(addr);
+        emit newEnglishAuctionEvent(addr);
 
         return address(addr);
     }
@@ -31,7 +31,7 @@ contract smartAuctionFactory{
         address addr = address(auction);
 
         auctions.push(addr);
-        emit newVickeryAuction(addr);
+        emit newVickeryAuctionEvent(addr);
 
         return address(addr);
     }

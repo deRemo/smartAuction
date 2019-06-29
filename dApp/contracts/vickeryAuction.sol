@@ -107,7 +107,7 @@ contract vickeryAuction is smartAuction{
             emit finalizeEvent(winningBidder, price);
         }
         else{
-            emit noWinner();
+            emit noWinnerEvent();
             if(winningBid != 0){
                 refundTo(winningBidder, winningBid);
             }

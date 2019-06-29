@@ -8,9 +8,14 @@
 
 <!-- Rest of the webpage -->
 <h1 id="accountId"></h1>
+<h1 id="currentBlock"></h1>
+
+<h2>Auctioneer part</h2>
+<input id="deployFactoryButton" type="button" value="deploy factory!" onclick="App.deploy(contractType.AUCTION_FACTORY);" />
+<p id="factoryId">factory address</p>
 
 <h2> Seller part </h2>
-<input id="deployButton" type="button" value="deploy!" onclick="App.deploy();" />
+<input id="deployAuctionButton" type="button" value="deploy!" onclick="App.deploy(contractType.ENGLISH_AUCTION);" />
 
 <h2> Bidder part </h2>
 <div id>Auctions list: </div>
