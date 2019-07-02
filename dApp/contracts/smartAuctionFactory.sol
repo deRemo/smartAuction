@@ -23,7 +23,7 @@ contract smartAuctionFactory{
         auctions.push(addr);
         emit newEnglishAuctionEvent(addr);
 
-        return address(addr);
+        return addr;
     }
     
     function deployVickeryAuction(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) public returns (address) {
@@ -33,6 +33,10 @@ contract smartAuctionFactory{
         auctions.push(addr);
         emit newVickeryAuctionEvent(addr);
 
-        return address(addr);
+        return addr;
+    }
+
+    function getAuctions() public view returns(address[] memory){
+        return auctions;
     }
 }

@@ -4,7 +4,8 @@
 //2. Init smart contracts (read json files)
 //3. Activate event listeners
 //4. Render page (call smart contract functions useful for initialization)
-var factoryAddress = 0x0;
+var factoryAddress = "0x9833C57Af7920656B4C42de33B1cDf6D9213Dade";
+var factoryInstance;
 
 const contractType = {
     ENGLISH_AUCTION: 'englishAuction',
@@ -51,14 +52,14 @@ App = {
             }
 		});
 
-		web3.eth.getBlockNumber(function (err, block) {
+		//get the current block number
+		web3.eth.getBlockNumber(function (err, blockNum) {
 			if(err == null){
-				console.log(block);
-				$("#currentBlock").html("current block: " + block);
+					console.log("current block: " + blockNum);
+					$("#currentBlock").html("current block: " + blockNum);
 			}
 		});
-		
-		//still have to figure out how to use it
+
 		$.getJSON(contractType.AUCTION_FACTORY+'.json').done(function(c) {
 			App.contracts[contractType.AUCTION_FACTORY] = TruffleContract(c);
 			App.contracts[contractType.AUCTION_FACTORY].setProvider(App.web3Provider);
@@ -103,7 +104,32 @@ App = {
 				});
 			});
 		});*/
+		
+		//watch for a new mined block and display the current number
+		web3.eth.filter('latest', (error, result) => {
+			web3.eth.getBlockNumber((err, blockNum) => {
+					if(err == null){
+							console.log("current block: " + blockNum);
+							$("#currentBlock").html("current block: " + blockNum);
+					}
+			});
+		});
+		//init factory contract's event listener
+		App.contracts[contractType.AUCTION_FACTORY].deployed().then((instance) => {
+				// watch for changes
+				instance.allEvents((error, event) => {
+						if (!error){
+								console.log(event.event + ": " + JSON.stringify(event.args));
 
+								if(event.event == "newEnglishAuctionEvent"){
+										addAuction(event.args["addr"]);
+								}
+						}
+						else console.log(error);
+				});
+		});
+
+		/*
 		App.contracts[contractType.ENGLISH_AUCTION].deployed().then(async (instance) => {
 			web3.eth.getBlockNumber(function (error, block) {
 
@@ -125,19 +151,25 @@ App = {
 					}
 				});
 			});
-		});	
+		});	*/
 		return App.render(); 
 	},
 
 	render: function() { /* Render useful information retrieved from the contracts */
-		/*App.contracts["smartAuctionFactory"].deployed().then(async(instance) =>{
+		$("#factoryId").html(factoryAddress);
+		factoryInstance = getContractInstance(contractType.AUCTION_FACTORY, factoryAddress);
+        console.log("factory address is " + factoryAddress);
+
+		//retrieve all the auctions of the factory and append it to the select list
+		App.contracts[contractType.AUCTION_FACTORY].deployed().then(async(instance) => {
 			const auctions = await instance.getAuctions();
 
-			console.log(auctions);
-			$("#valueId").html("" + au);
-		});*/
+			auctions.forEach(function (auction, index) {
+					addAuction(auction);
+			});
+		});
 
-		$("#factoryId").load("js/factoryAddress.txt", function(response, status, xhr) {
+		/*$("#factoryId").load("js/factoryAddress.txt", function(response, status, xhr) {
 			if(response.length == 0){
 				console.log("no factory");
 			}
@@ -145,15 +177,7 @@ App = {
 				factoryAddress = $('#factoryId').html();
 				console.log("factory address is "+ factoryAddress);
 			}
-		});
-
-		App.contracts[contractType.ENGLISH_AUCTION].deployed().then(async(instance) =>{
-			//Get auctioneer address
-			const au = await instance.getAuctioneer();
-
-			console.log(au);
-			$("#valueId").html("" + au);
-		});
+		});*/
 	},
 	
 	deploy: function(type){
@@ -166,7 +190,11 @@ App = {
 			});
 		});*/
 		
-		deployNewContract(type, 3, 3, 3, 3);
+		App.contracts[contractType.AUCTION_FACTORY].deployed().then(async(instance) =>{
+			instance.deployEnglishAuction(3,3,3,3);
+		});
+		
+		//deployNewContract(type, 3, 3, 3, 3);
 	},
 
 	getBiddingLength: function() {
@@ -181,7 +209,7 @@ App = {
 		const bidAmount = document.getElementById("bidField").value;
 		const auctionAddr = getSelectedAuction();
 
-		getAuctionInstance(contractType.ENGLISH_AUCTION, auctionAddr).then(async(instance) => {
+		getContractInstance(contractType.ENGLISH_AUCTION, auctionAddr).then(async(instance) => {
 			const bidded = await instance.bid({from: App.account, value: web3.toWei(bidAmount, 'wei')});
 			console.log("bidded " + bidAmount + " wei at auction " + auctionAddr);
 		});
@@ -241,6 +269,6 @@ function deployNewContract(type, ...params){
 }
 
 //get an auction instance from his type and address
-function getAuctionInstance(auctionType, auctionAddr){
-	return App.contracts[auctionType].at(auctionAddr);
+function getContractInstance(type, addr){
+	return App.contracts[type].at(addr);
 }
