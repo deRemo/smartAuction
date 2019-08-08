@@ -1,0 +1,65 @@
+//line 8 OK 
+var factoryInstance;
+
+
+//line 55 OK
+//get the current block number
+		web3.eth.getBlockNumber(function (err, blockNum) {
+			if(err == null){
+				console.log("current block: " + blockNum);
+				$("#currentBlock").html("current block: " + blockNum);
+			}
+		});
+
+//line 93
+factoryInstance = getContractInstance(contractType.AUCTION_FACTORY, factoryAddress);
+
+//line 110 OK
+//watch for a new mined block and display the current number
+		web3.eth.filter('latest', (error, result) => {
+			web3.eth.getBlockNumber((err, blockNum) => {
+				if(err == null){
+					console.log("current block: " + blockNum);
+					$("#currentBlock").html("current block: " + blockNum);
+				}
+			});
+		});
+// right after line 100 + x OK
+		//init factory contract's event listener
+		factoryInstance.then((instance) => {
+			// watch for changes
+			instance.allEvents((error, event) => {
+				if (!error){
+					console.log(event.event + ": " + JSON.stringify(event.args));
+					
+					if(event.event == "newEnglishAuctionEvent"){
+						addAuction(event.args["addr"]);
+					}
+				}
+				else console.log(error);
+			});
+		});
+
+//line 157 OK
+$("#factoryId").html(factoryAddress);
+		console.log("factory address is " + factoryAddress);
+
+//line 170 OKAY
+factoryInstance.then(async(instance) => {
+			const auctions = await instance.getAuctions();
+
+			auctions.forEach(function (auction, index) {
+				addAuction(auction);
+			});
+		});
+
+//line 189 PARTIALLY
+	if(type == contractType.ENGLISH_AUCTION){
+			deployNewContract(type, 3, 3, 3, 3);
+			/*factoryInstance.then(async(instance) => {
+				instance.deployEnglishAuction(3,3,3,3);
+			});*/
+		}
+		else if(type == contractType.AUCTION_FACTORY){
+			deployNewContract(type);
+		}

@@ -1,4 +1,4 @@
-//load the englishAuction.json from the build folder
+//load the smartAuctionFactory.json from the build folder
 const factory = artifacts.require("smartAuctionFactory");
 
 module.exports = function(deployer){
