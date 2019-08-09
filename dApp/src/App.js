@@ -6,6 +6,7 @@ import Typography from '@material-ui/core/Typography';
 import Box from '@material-ui/core/Box';
 import Paper from '@material-ui/core/Paper';
 import Grid from '@material-ui/core/Grid';
+import Button from '@material-ui/core/Button';
 
 //contract part
 import Web3 from 'web3';
@@ -82,11 +83,37 @@ class App extends Component {
 				this.setState({ currentBlock: event.number});
 			}
 		});
+		
+		//factory event listener, to retrieve and display the deployed auctions
+		this.state.contracts["smartAuctionFactory"].deployed().then(async(instance) => {
+			console.log(instance);
 
-		this.web3.eth.subscribe("logs", {}, (err, data) => {console.log(data)});
+			this.web3.eth.getBlockNumber(function (error, block) {
+				instance.newEnglishAuctionEvent().on('data', function (event) {
+					console.log("Event catched");
+					console.log(event);
+					// If event has parameters: event.returnValues.valueName
+				});
+			});
+			
+			/*this.web3.eth.subscribe('logs', {
+					address: "0xD7c7e0329F61aa3B0f3F85BfA483fF9208c45A7e", 
+					topics: ["0x89c2071d9fd4eb44012e6d6412a8e21f4b329bf4f1a4cdd3ed08958bb1764f3d"]
+				}, 
+				(error, event) => {
+					if (!error)
+						console.log(event);
+				})
+			.on("data", function(log){
+				console.log(log);
+			})
+			.on("changed", function(log){
+				console.log(log);
+			});*/
+		});
 	}
 
-	componentWillMount(){
+	componentDidMount(){
 		//Get current account
 		this.web3.eth.getCoinbase(async(err, account) => {
             if(!err) {
@@ -103,57 +130,26 @@ class App extends Component {
 				this.setState({ currentBlock: blockNum });
 			}
 		});
-
-		this.state.contracts["smartAuctionFactory"].at("0xD7c7e0329F61aa3B0f3F85BfA483fF9208c45A7e").then(async(instance) => {
-			console.log(instance);
-		});
-		
-		//factory event listener, to retrieve and display the deployed auctions
-		this.state.contracts["smartAuctionFactory"].deployed().then(async(instance) => {
-			console.log(instance);
-
-			/*this.web3.eth.getBlockNumber(function (error, block) {
-				// click is the Solidity event
-				instance.newEnglishAuctionEvent().on('data', function (event) {
-					console.log("Event catched");
-					console.log(event);
-					// If event has parameters: event.returnValues.valueName
-				});
-			});*/
-			
-			this.web3.eth.subscribe('logs', {
-					address: "0xD7c7e0329F61aa3B0f3F85BfA483fF9208c45A7e", 
-					topics: ["0x89c2071d9fd4eb44012e6d6412a8e21f4b329bf4f1a4cdd3ed08958bb1764f3d"]
-				}, 
-				(error, event) => {
-					if (!error)
-						console.log(event);
-				})
-			.on("data", function(log){
-				console.log(log);
-			})
-			.on("changed", function(log){
-				console.log(log);
-			});
-			
-			/*instance.allEvents((error, event) => {
-				if(!error){
-						console.log(event.event);
-				}
-			});*/
-		});
-	}
-
-	componentDidMount(){
-
 	}
 	
 	//add to the auctions array a new auction
-    handleDeploy = (event) => {
+    handleContractDeploy = (event) => {
         this.setState(oldState => ({
 			...oldState,
             auctions: this.state.auctions.concat(Math.random()),
 		}));
+	}
+
+	//create a new factory contract
+	//used only ONCE to start the auction system
+	handleFactoryDeploy = () => {
+		this.state.contracts["smartAuctionFactory"].new({from: this.state.account}).then(instance => {
+			console.log('factory contract deployed at address '+ instance.address);
+			//factoryAddress = instance.address;
+			
+		}).catch(err => {
+			console.log('error: factory contract not deployed', err);
+		});
 	}
 
 	render(){
@@ -168,17 +164,23 @@ class App extends Component {
 							<Grid item xs={10} sm={10}>
 								<Paper className={classes.paper}>
 									bidder
-									<AuctionManager auctions={this.state.auctions} onDeploy={this.handleDeploy}/>
+									<AuctionManager auctions={this.state.auctions} onDeploy={this.handleContractDeploy}/>
 								</Paper>
 							</Grid>
 							<Grid item xs={10} sm={10}>
 								<Paper className={classes.paper}>
 									seller
-									<ContractCreator factory={this.state.contracts["smartAuctionFactory"]} account={this.state.account} onDeploy={this.handleDeploy}/>
+									<ContractCreator factory={this.state.contracts["smartAuctionFactory"]} account={this.state.account} onDeploy={this.handleContractDeploy}/>
 								</Paper>
 							</Grid>
 							<Grid item xs={10} sm={10}>
-								<Paper className={classes.paper}>auctioneer</Paper>
+								<Paper className={classes.paper}>
+									auctioneer
+									<p></p>
+									<Button onClick={() => this.handleFactoryDeploy()} variant="contained">
+										Deploy Auction Factory!
+									</Button>
+								</Paper>
 							</Grid>
 						</Grid>
 					</Container>

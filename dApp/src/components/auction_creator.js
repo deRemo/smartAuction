@@ -60,7 +60,7 @@ class ContractCreator extends Component {
 	handleDeploy = (auctionType) => {
 		if(auctionType === "en"){
 			console.log("deploy en");
-			this.props.factory.at("0xD7c7e0329F61aa3B0f3F85BfA483fF9208c45A7e").then(async(instance) =>{
+			this.props.factory.deployed().then(async(instance) =>{
 				instance.deployEnglishAuction(
 					this.state["en_reserve_price"],
 					this.state["en_buyout_price"],
