@@ -1,0 +1,7 @@
+changed the name "auctioneer" in "seller" in the contracts.
+
+auctioneer = the guy that owns the website and that decides when to start creating auction and bidding
+
+seller = the guy who uses the auctioneer's website to create a new auction
+
+bidder = the guy searching for auctions and bidding

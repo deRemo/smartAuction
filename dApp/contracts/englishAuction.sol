@@ -1,4 +1,4 @@
-pragma solidity ^0.5.1;
+pragma solidity ^0.5.3;
 import "./smartAuction.sol";
 
 /* 
@@ -14,8 +14,8 @@ contract englishAuction is smartAuction{
     
     event buyOutEvent(address bidder, uint amount); //notify that someone buy out the good
     
-    constructor(uint _reservePrice, uint _buyOutPrice, uint _unchallegedLength, uint _increment) 
-                    smartAuction( _reservePrice, 0, _unchallegedLength, 0) public {
+    constructor(address payable seller, uint _reservePrice, uint _buyOutPrice, uint _unchallegedLength, uint _increment) 
+                    smartAuction(seller, _reservePrice, 0, _unchallegedLength, 0) public {
         buyOutPrice = _buyOutPrice;
         increment = _increment; 
         unchallegedLength = _unchallegedLength;
@@ -49,7 +49,7 @@ contract englishAuction is smartAuction{
         require(amount > winningBid, "There is an higher bid already!");
         require(amount >= winningBid + increment, "You have to pay a minimum increment amount!");
         
-        biddingLength += unchallegedLength - (biddingLength - ((block.number - creationBlock) + 1)); //increment bidding time in order to have the same unchallegedLength for each bid
+        biddingLength += unchallegedLength - (biddingLength - ((block.number - creationBlock) + 1)); //increment bidding time in order to have the same unchallegedLength for each new bid
         
         //no more chances of buying out the good
         if(buyOutPrice != 0){
@@ -72,7 +72,7 @@ contract englishAuction is smartAuction{
         //if you are here, no re-entrancy problem, because finalized has been set to true!
         
         if(winningBidder != address(0) && winningBid != 0){
-            auctioneer.transfer(winningBid);
+            seller.transfer(winningBid);
             emit finalizeEvent(winningBidder, winningBid);
         }
         else emit noWinnerEvent();

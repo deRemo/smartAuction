@@ -1,8 +1,8 @@
-pragma solidity ^0.5.1;
+pragma solidity ^0.5.3;
 
 //smart auction base contract
 contract smartAuction {
-    address payable auctioneer; //the seller
+    address payable seller;
     mapping(address => uint) bidders; //maps bidders to the amount they spent
     bool finalized; //set at true when the payment is finalized, to avoid multiple unwanted transfers 
     
@@ -19,13 +19,13 @@ contract smartAuction {
     event logEvent(string str); //debug
     event newHighestBidEvent(address bidder, uint amount); //notify new highest bid
     event finalizeEvent(address bidder, uint amount); //notify that the auction has ended and the good has been payed
+    event noWinnerEvent(); //notify that the auction has ended with no winner
     event refundEvent(address bidder, uint amount); //notify if someone get a refund
-    event noWinnerEvent(); //notify if there is no winner
     
     //init auction instance
-    constructor(uint _reservePrice, uint _preBiddingLength, uint _biddingLength, uint _postBiddingLength) public {
+    constructor(address payable _seller, uint _reservePrice, uint _preBiddingLength, uint _biddingLength, uint _postBiddingLength) public {
         require(_biddingLength > 0, "You must specify the bidding time(in block) and reserve price!");
-        auctioneer = msg.sender;
+        seller = _seller;
         creationBlock = block.number;
         
         preBiddingLength = _preBiddingLength;
@@ -121,10 +121,10 @@ contract smartAuction {
     }*/
     
     //default finalize conditions
-    function finalizeConditions() internal{
+    function finalizeConditions() public{
         require(getCurrentPhase() == phase.end, "Auction hasn't ended yet");
         require(!finalized, "Auction has ended and the payment has already been finalized");
-        require(msg.sender == winningBidder || msg.sender == auctioneer, "You are not the winner or the auctioneer!");
+        require(msg.sender == winningBidder || msg.sender == seller, "You are not the winner or the seller!");
         
         finalized = true;
     }
@@ -139,10 +139,22 @@ contract smartAuction {
     //finalize method: not implemented in order to make the contract abstract
     function finalize() public;
     
-    function getAuctioneer() public view returns(address){
-        return auctioneer;
+    function isFinalized() public view returns(bool){
+        return finalized;
+    }
+
+    function getSeller() public view returns(address){
+        return seller;
     }
     
+    function getWinningBidder() public view returns(address){
+        return winningBidder;
+    }
+
+    function getWinningBid() public view returns(uint){
+        return winningBid;
+    }
+
     function getPreBiddingLength() public view returns(uint){
         return preBiddingLength;
     }

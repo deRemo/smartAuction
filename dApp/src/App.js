@@ -11,15 +11,20 @@ import Button from '@material-ui/core/Button';
 //contract part
 import Web3 from 'web3';
 import TruffleContract from 'truffle-contract';
+
 import englishAuction from './build/contracts/englishAuction.json';
 import vickeryAuction from './build/contracts/vickeryAuction.json';
 import smartAuctionFactory from './build/contracts/smartAuctionFactory.json';
 
 //custom component part
-import NavBar from "./components/navbar";
-import ContractCreator from "./components/auction_creator";
-import AuctionManager from "./components/auction_manager";
+import NavBar from "./components/Navbar";
+import AuctionCreator from "./components/AuctionCreator";
+import AuctionManager from "./components/AuctionManager";
 
+//utils
+import { EventDispatcher } from "./utils/EventDispatcher";
+
+//styles of the material-ui's components
 const styles = theme => ({
 	root: {
 		flexGrow: 1,
@@ -36,14 +41,24 @@ const styles = theme => ({
 	},
 });
 
+//enum: types of contract
+const types = {
+	ENGLISH: 'englishAuction',
+	VICKERY: 'vickeryAuction',
+	FACTORY: 'smartAuctionFactory'
+};
+
 class App extends Component {
 	//App attribute
 
 	constructor(props){
 		super(props);
+		
+		//used to inform the auctions of the arrival of a new block in the blockchain
+		this.dispatcher = new EventDispatcher();
 
+		//React state
 		this.state = {
-			auctions: [],
 			contracts: {}, //store contract abstractions
 			account: undefined,
 			currentBlock: undefined,
@@ -66,87 +81,71 @@ class App extends Component {
 		}
 		console.log("web3 version " + this.web3.version);
 
-		//Get contracts
-		this.state.contracts["englishAuction"] = TruffleContract(englishAuction);
-		this.state.contracts["englishAuction"].setProvider(this.web3Provider);
-		
-		this.state.contracts["vickeryAuction"] = TruffleContract(vickeryAuction);
-		this.state.contracts["vickeryAuction"].setProvider(this.web3Provider);
-		
-		this.state.contracts["smartAuctionFactory"] = TruffleContract(smartAuctionFactory);
-		this.state.contracts["smartAuctionFactory"].setProvider(this.web3Provider);
+		//Get contracts using truffle-contract and store them in state
+		const retrieveContract = (type, json) => {
+			this.state.contracts[type] = TruffleContract(json);
+			this.state.contracts[type].setProvider(this.web3Provider);
+		};
 
-		//Init event handlers
-		//Check for new mined block, to display the current block number
-		this.web3.eth.subscribe("newBlockHeaders", (error, event) => {
-			if(!error) {
-				this.setState({ currentBlock: event.number});
-			}
-		});
-		
-		//factory event listener, to retrieve and display the deployed auctions
-		this.state.contracts["smartAuctionFactory"].deployed().then(async(instance) => {
-			console.log(instance);
-
-			this.web3.eth.getBlockNumber(function (error, block) {
-				instance.newEnglishAuctionEvent().on('data', function (event) {
-					console.log("Event catched");
-					console.log(event);
-					// If event has parameters: event.returnValues.valueName
-				});
-			});
-			
-			/*this.web3.eth.subscribe('logs', {
-					address: "0xD7c7e0329F61aa3B0f3F85BfA483fF9208c45A7e", 
-					topics: ["0x89c2071d9fd4eb44012e6d6412a8e21f4b329bf4f1a4cdd3ed08958bb1764f3d"]
-				}, 
-				(error, event) => {
-					if (!error)
-						console.log(event);
-				})
-			.on("data", function(log){
-				console.log(log);
-			})
-			.on("changed", function(log){
-				console.log(log);
-			});*/
-		});
+		//exec aux function
+		retrieveContract(types.ENGLISH, englishAuction);
+		retrieveContract(types.VICKERY, vickeryAuction);
+		retrieveContract(types.FACTORY, smartAuctionFactory);
 	}
 
 	componentDidMount(){
-		//Get current account
+		/*//Get current account
 		this.web3.eth.getCoinbase(async(err, account) => {
             if(!err) {
-				this.setState({ account: account });
+				//convert address in mixed case (as stored in the contracts)
+				this.setState({ account : this.web3.utils.toChecksumAddress(account) });
 				console.log("Account Address: "+ this.state.account);
-                //$("#accountId").html("Account Address: " + account); //accountId is a piece of plain text
             }
-		});
+		});*/
 
-		//Get the current block number
+		//set an interval to get the current account and detect when 
+		//it is changed (as recommended by metamask)
+		setInterval(() => {
+			this.web3.eth.getCoinbase(async(err, account) => {
+				//convert address(they are stored in mixed case in the contracts)
+				const mixed_case_account = this.web3.utils.toChecksumAddress(account);
+				
+				if(!err){
+					if(mixed_case_account !== this.state.account){
+						this.setState({ account : mixed_case_account });
+						console.log("Account Address: "+ this.state.account);
+					}
+				}
+				else{
+					console.log(err);
+				}
+			});
+		  }, 100);
+
+		//Get current block number and propagate to the auctions 
 		this.web3.eth.getBlockNumber(async(err, blockNum) => {
 			if(!err){
 				console.log("current block: " + blockNum);
-				this.setState({ currentBlock: blockNum });
+				this.setState({ currentBlock : blockNum });
+			}
+		});
+
+		//Check for new mined block: display the new block number
+		//and propagate it to the auctions
+		this.web3.eth.subscribe("newBlockHeaders", (error, event) => {
+			if(!error) {
+				this.setState({ currentBlock : event.number});
+
+				//emits block event
+				this.dispatcher.dispatch('newBlock', event.number);
 			}
 		});
 	}
-	
-	//add to the auctions array a new auction
-    handleContractDeploy = (event) => {
-        this.setState(oldState => ({
-			...oldState,
-            auctions: this.state.auctions.concat(Math.random()),
-		}));
-	}
 
 	//create a new factory contract
-	//used only ONCE to start the auction system
 	handleFactoryDeploy = () => {
-		this.state.contracts["smartAuctionFactory"].new({from: this.state.account}).then(instance => {
+		this.state.contracts[types.FACTORY].new({from: this.state.account}).then(async(instance) => {
 			console.log('factory contract deployed at address '+ instance.address);
-			//factoryAddress = instance.address;
-			
 		}).catch(err => {
 			console.log('error: factory contract not deployed', err);
 		});
@@ -157,27 +156,32 @@ class App extends Component {
 
 		return (
 			<React.Fragment>
-				<NavBar currentBlock={this.state.currentBlock}/>
+				<NavBar currentBlock={this.state.currentBlock} account={this.state.account}/>
 				<main>
 					<Container maxWidth="lg">
-						<Grid container className={classes.root} spacing={2} justify = "center">
+						<Grid container className={classes.root} spacing={2} justify="center">
 							<Grid item xs={10} sm={10}>
 								<Paper className={classes.paper}>
 									bidder
-									<AuctionManager auctions={this.state.auctions} onDeploy={this.handleContractDeploy}/>
+									<AuctionManager 
+										types={types} 
+										account={this.state.account} 
+										contracts={this.state.contracts}
+										dispatcher={this.dispatcher}
+									/>
 								</Paper>
 							</Grid>
 							<Grid item xs={10} sm={10}>
 								<Paper className={classes.paper}>
 									seller
-									<ContractCreator factory={this.state.contracts["smartAuctionFactory"]} account={this.state.account} onDeploy={this.handleContractDeploy}/>
+									<AuctionCreator factory={this.state.contracts[types.FACTORY]} account={this.state.account}/>
 								</Paper>
 							</Grid>
 							<Grid item xs={10} sm={10}>
 								<Paper className={classes.paper}>
 									auctioneer
 									<p></p>
-									<Button onClick={() => this.handleFactoryDeploy()} variant="contained">
+									<Button onClick={() => this.handleFactoryDeploy()} color="primary">
 										Deploy Auction Factory!
 									</Button>
 								</Paper>
@@ -199,74 +203,3 @@ class App extends Component {
 }
 
 export default withStyles(styles)(App);
-
-
-/* OLD, FUNCTIONAL COMPONENT
-import { makeStyles } from '@material-ui/core/styles';
-const useStyles = makeStyles(theme => ({
-	root: {
-		flexGrow: 1,
-	},
-
-	control: {
-		padding: theme.spacing(2),
-	},
-	
-	paper: {
-		padding: theme.spacing(3),
-    	textAlign: 'center',
-    	color: theme.palette.text.secondary,
-	},
-}));
-
-export default function App() {
-	const classes = useStyles();
-
-	const [state, setState] = React.useState({
-        auctions: [],
-	});
-	
-	//add to the auctions array a new auction
-    const handleDeploy = (event) => {
-        setState(oldState => ({
-            ...oldState,
-            auctions: state.auctions.concat(Math.random()),
-        }));
-	}
-	
-	return (
-		<React.Fragment>
-			<NavBar/>
-			<main>
-				<Container maxWidth="lg">
-					<Grid container className={classes.root} spacing={2} justify = "center">
-						<Grid item xs={10} sm={10}>
-							<Paper className={classes.paper}>
-								bidder
-								<AuctionManager auctions={state.auctions} onDeploy={handleDeploy}/>
-							</Paper>
-						</Grid>
-						<Grid item xs={10} sm={10}>
-							<Paper className={classes.paper}>
-								seller
-								<ContractCreator onDeploy={handleDeploy}/>
-							</Paper>
-						</Grid>
-						<Grid item xs={10} sm={10}>
-							<Paper className={classes.paper}>auctioneer</Paper>
-						</Grid>
-					</Grid>
-				</Container>
-
-				<Container maxWidth="sm">
-					<Box my={4}>
-						<Typography variant="body2" color="textSecondary" align="center">
-      						P2P 2018/2019 Final Project made by Remo Andreoli
-    					</Typography>
-					</Box>
-				</Container>
-			</main>
-		</React.Fragment>
-	);
-}
-*/

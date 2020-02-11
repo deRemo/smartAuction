@@ -33,7 +33,9 @@ export default function NavBar(props) {
                     <Typography variant="h6" className={classes.title}>
                         {props.currentBlock}
                     </Typography>
-
+                    <Typography variant="h6" className={classes.title}>
+                        You: {props.account}
+                    </Typography>
                     <Tabs value={value} onChange={handleChange} aria-label="tabs">
                         <Tab label="Bidder"  />
                         <Tab label="Seller"  />

@@ -1,4 +1,4 @@
-pragma solidity ^0.5.1;
+pragma solidity ^0.5.3;
 import "./smartAuction.sol";
 
 /* 
@@ -16,8 +16,8 @@ contract vickeryAuction is smartAuction{
     uint price; //amount that the winner has to pay (the second highest bid)
     mapping(address => bytes32) commits; //keep track of the hashed committments
     
-    constructor(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
-                    smartAuction(_reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
+    constructor(address payable seller, uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
+                    smartAuction(seller, _reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
         deposit = _deposit;
         
         bidCommitLength = _bidCommitLength;
@@ -99,7 +99,7 @@ contract vickeryAuction is smartAuction{
                 price = reservePrice;
             }
             
-            auctioneer.transfer(price);
+            seller.transfer(price);
             
             bidders[winningBidder] -= price;
             
