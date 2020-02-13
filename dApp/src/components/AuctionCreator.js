@@ -52,12 +52,14 @@ class AuctionCreator extends Component {
 		}
 	}
 
-	//handle the state in change due to user input
-	handleTextFieldChange = (auctionType) => {
-		auctionType.persist();
+	//handle the state change due to user input
+	handleTextFieldChange = (changeEvent) => {
+		changeEvent.persist();
+
+		//update the value in state
 		this.setState(oldState => ({
 		  ...oldState,
-		  [auctionType.target.id]: auctionType.target.value,
+		  [changeEvent.target.id]: changeEvent.target.value,
 		}));
 	}
 
@@ -107,15 +109,6 @@ class AuctionCreator extends Component {
 	checkButtonError = (auctionType) => {
 		var empty = true; //true if the fields are empty
 		var wrong = true; //true if the fiels are wrongly filled
-		
-		var keys = Object.keys(this.state);
-		var filtered_keys = keys.filter((k) => {
-			return !this.isEmpty(k);
-		}).filter((k) => {
-			return !this.isNumberOnly(k);
-		});
-
-		console.log(filtered_keys);
 
 		if(auctionType === "en"){
 			empty = this.isEmpty("en_reserve_price") || this.isEmpty("buyout_price") ||

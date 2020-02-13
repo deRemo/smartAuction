@@ -22,7 +22,7 @@ import AuctionCreator from "./components/AuctionCreator";
 import AuctionManager from "./components/AuctionManager";
 
 //utils
-import { EventDispatcher } from "./utils/EventDispatcher";
+import EventDispatcher from "./utils/EventDispatcher";
 
 //styles of the material-ui's components
 const styles = theme => ({
@@ -54,7 +54,7 @@ class App extends Component {
 	constructor(props){
 		super(props);
 		
-		//used to inform the auctions of the arrival of a new block in the blockchain
+		//used to propagate events locally (in the dApp)
 		this.dispatcher = new EventDispatcher();
 
 		//React state
@@ -113,6 +113,8 @@ class App extends Component {
 				if(!err){
 					if(mixed_case_account !== this.state.account){
 						this.setState({ account : mixed_case_account });
+						this.dispatcher.dispatch("accountSwitch", this.state.account);
+
 						console.log("Account Address: "+ this.state.account);
 					}
 				}
@@ -140,6 +142,11 @@ class App extends Component {
 				this.dispatcher.dispatch('newBlock', event.number);
 			}
 		});
+
+		//console.log(this.web3.utils.soliditySha3({'uint32' : '10', 'uint' : '10'}));
+
+		//const encoded = this.web3.eth.abi.encodeParameters(['uint32','uint'], ['10', '10']);
+		//console.log(this.web3.utils.sha3(encoded));
 	}
 
 	//create a new factory contract

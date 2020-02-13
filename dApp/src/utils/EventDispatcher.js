@@ -1,4 +1,4 @@
-export class EventDispatcher{
+class EventDispatcher{
     constructor(){
         this.events = {};
     }
@@ -16,7 +16,7 @@ export class EventDispatcher{
 		}
 
 		//create event if it doesn't exist
-		if(this.events[event] === undefined){
+		if(!this.eventExist(event)){
 			this.events[event] = []
 		}
         
@@ -26,8 +26,8 @@ export class EventDispatcher{
     
     //remove event subscriber
 	removeEventSubscriber(event, id){
-        if(this.events[event] === undefined){
-            console.error("EVENT DISPATCHER ERROR: NO SUCH EVENT");
+        if(!this.eventExist(event)){
+            console.error("NO SUCH EVENT ", event, "TO UNSUBSCRIBE FROM");
             return false;
         }
 
@@ -39,14 +39,21 @@ export class EventDispatcher{
     
     //dispatch event by executing the callbacks
     dispatch(event, data){
-        if(this.events[event] === undefined){
-            console.error("EVENT DISPATCHER ERROR: NO SUCH EVENT");
+        if(!this.eventExist(event)){
+            //console.error("DISPATCHING INTERRUPTED: NO SUCH EVENT", event);
             return false;
         }
-
+        
         //for each subscriber, execute its callback
         this.events[event].forEach((subscriber) => {
             subscriber.v(data);
         })
     }
+
+    //check if the event exists
+    eventExist(event){
+        return this.events[event] !== undefined;
+    }
 }
+
+export default EventDispatcher;

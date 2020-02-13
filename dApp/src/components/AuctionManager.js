@@ -5,14 +5,6 @@ import Snackbar from '@material-ui/core/Snackbar';
 
 import Auction from "./Auction";
 
-//enum: auction's phases
-const phases = {
-	PREBID: '0',
-	BID: '1',
-	POSTBID: '2', 
-	END: '3'
-};
-
 const styles = (theme) => ({
 	root: {
 		flexGrow: 1,
@@ -56,8 +48,9 @@ class AuctionManager extends Component {
 					auctions.forEach((addr) => {
 						//retrieve auction instance
 						this.props.contracts[type].at(addr).then(async(instance) => {
-							instance.getCurrentPhase().then((result) => {
-								if(result.toString() !== phases.END){
+							//if finalized, remove the auction from the list
+							instance.isFinalized().then((finalized) => {
+								if(!finalized){
 									this.addAuction(addr, type);
 								}
 							});

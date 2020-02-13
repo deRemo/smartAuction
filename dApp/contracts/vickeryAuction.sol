@@ -26,7 +26,7 @@ contract vickeryAuction is smartAuction{
     }
     
     //commit using an hashed message to ensure the bid's secrecy
-    function bid(bytes32 hash) payable public{
+    function bid(bytes32 hashedMsg) payable public{
         super.bidConditions();
         require((creationBlock + preBiddingLength + bidCommitLength) - 1 >= block.number, "It is not bid committment time anymore!");
         
@@ -36,12 +36,12 @@ contract vickeryAuction is smartAuction{
         require(depositAmount >= deposit, "Deposit amount is not enough!");
         
         bidders[bidder] = depositAmount; //saving the deposit requirement
-        commits[bidder] = hash; //saving the hashed committment
+        commits[bidder] = hashedMsg; //saving the hashed committment
     }
     
-    //Handy method used to generate and send hashed committment
-    function simple_bid(uint32 nonce, uint bidAmount) payable public{
-        bid(keccak256(abi.encode(nonce, bidAmount)));
+    //Debug method used to generate and send hashed committment
+    function test_bid(uint32 nonce, uint bidAmount) payable public{
+        bid(keccak256(abi.encodePacked(nonce, bidAmount)));
     }
     
     function withdraw() public {
@@ -62,7 +62,7 @@ contract vickeryAuction is smartAuction{
         
         uint amount = msg.value;
         address payable bidder = msg.sender;
-        bytes32 hash = keccak256(abi.encode(nonce, amount)); //sha3 is deprecated!
+        bytes32 hash = keccak256(abi.encodePacked(nonce, amount)); //sha3 is deprecated!
         require(hash == commits[bidder], "The amount doesn't match with the committment!");
         
         refundTo(bidder, bidders[bidder]); //refund full deposit

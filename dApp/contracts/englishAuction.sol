@@ -77,4 +77,8 @@ contract englishAuction is smartAuction{
         }
         else emit noWinnerEvent();
     }
+
+    function getIncrement() public view returns(uint){
+        return increment;
+    }
 }
