@@ -28,11 +28,11 @@ contract vickeryAuction is smartAuction{
     //commit using an hashed message to ensure the bid's secrecy
     function bid(bytes32 hashedMsg) payable public{
         super.bidConditions();
-        require((creationBlock + preBiddingLength + bidCommitLength) - 1 >= block.number, "It is not bid committment time anymore!");
+        require(isBidCommitPhase(), "It is not bid committment time anymore!");
         
         uint depositAmount = msg.value;
         address bidder = msg.sender;
-        require(commits[bidder] == 0, "You have already made a committment!");
+        require(commits[bidder] == bytes32(0), "You have already made a committment!");
         require(depositAmount >= deposit, "Deposit amount is not enough!");
         
         bidders[bidder] = depositAmount; //saving the deposit requirement
@@ -46,8 +46,8 @@ contract vickeryAuction is smartAuction{
     
     function withdraw() public {
         super.bidConditions(); //Because in this case the withdraw require the same conditions of bids!
-        require((creationBlock + preBiddingLength + bidCommitLength) - 1 < block.number, "It is still bid committment time!");
-        require((creationBlock + preBiddingLength + bidCommitLength + bidWithdrawLength) - 1 >= block.number, "It is not withdraw time anymore!");
+        require(!isBidCommitPhase(), "It is still bid committment time!");
+        require(isBidWithdrawPhase(), "It is not withdraw time anymore!");
         
         address payable bidder = msg.sender;
         uint refundAmount = bidders[bidder]/2; //they pay half deposit as a fee
@@ -62,8 +62,8 @@ contract vickeryAuction is smartAuction{
         
         uint amount = msg.value;
         address payable bidder = msg.sender;
-        bytes32 hash = keccak256(abi.encodePacked(nonce, amount)); //sha3 is deprecated!
-        require(hash == commits[bidder], "The amount doesn't match with the committment!");
+        bytes32 hashedMsg = keccak256(abi.encodePacked(nonce, amount)); //sha3 is deprecated!
+        require(hashedMsg == commits[bidder], "The amount doesn't match with the committment!");
         
         refundTo(bidder, bidders[bidder]); //refund full deposit
         bidders[bidder] += amount; //add bid amount
@@ -89,7 +89,7 @@ contract vickeryAuction is smartAuction{
         }
     }
     
-    //give back the remaining to the winning bidder
+    //Give back the remaining to the winning bidder
     function finalize() public{
         super.finalizeConditions();
         //if you are here, no re-entrancy problem, because finalized has been set to true!
@@ -112,5 +112,40 @@ contract vickeryAuction is smartAuction{
                 refundTo(winningBidder, winningBid);
             }
         }
+    }
+
+    //Since smartAuction represents the bid committment and bid withdrawal phases as a single one
+    //(bid_phase = commit_phase + withdraw_phase), I need the following two functions that compute the exact phase 
+    //of the vickery auction
+    
+    function isBidCommitPhase() public view returns(bool){
+        return (creationBlock + preBiddingLength + bidCommitLength) - 1 >= block.number;
+    }
+
+    function isBidWithdrawPhase() public view returns(bool){
+        return (creationBlock + preBiddingLength + bidCommitLength + bidWithdrawLength) - 1 >= block.number;
+    }
+
+    //Checks if the message sender committed to the auction
+    function userCommitted() public view returns(bool){
+        return commits[msg.sender] != 0;
+    }
+
+    //Getters
+
+    function getDeposit() public view returns(uint){
+        return deposit;
+    }
+
+    function getBidCommitLength() public view returns(uint){
+        return bidCommitLength;
+    }
+
+    function getBidWithdrawLength() public view returns(uint){
+        return bidWithdrawLength;
+    }
+
+    function getBidOpeningLength() public view returns(uint){
+        return bidOpeningLength;
     }
 }

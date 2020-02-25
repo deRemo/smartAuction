@@ -143,6 +143,8 @@ contract smartAuction {
         return finalized;
     }
 
+    //Getters
+
     function getSeller() public view returns(address){
         return seller;
     }
@@ -153,6 +155,10 @@ contract smartAuction {
 
     function getWinningBid() public view returns(uint){
         return winningBid;
+    }
+
+    function getCreationBlock() public view returns(uint){
+        return creationBlock;
     }
 
     function getPreBiddingLength() public view returns(uint){

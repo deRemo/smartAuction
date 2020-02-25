@@ -78,7 +78,13 @@ contract englishAuction is smartAuction{
         else emit noWinnerEvent();
     }
 
+    //Getters
+
     function getIncrement() public view returns(uint){
         return increment;
+    }
+
+    function getBuyOutPrice() public view returns(uint){
+        return buyOutPrice;
     }
 }
