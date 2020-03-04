@@ -15,3 +15,7 @@ bidder = the guy searching for auctions and bidding
 added some getters to better use the dApp
 
 added a auction factory
+
+modified refundTo
+
+adjusted getCurrentPhase()

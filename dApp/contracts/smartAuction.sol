@@ -16,7 +16,7 @@ contract smartAuction {
     uint biddingLength; //bidding time period, in blocks
     uint postBiddingLength; //post bidding time period, in blocks
     
-    event logEvent(string str); //debug
+    event logEvent(string msg, uint val); //debug
     event newHighestBidEvent(address bidder, uint amount); //notify new highest bid
     event finalizeEvent(address bidder, uint amount); //notify that the auction has ended and the good has been payed
     event noWinnerEvent(); //notify that the auction has ended with no winner
@@ -40,13 +40,13 @@ contract smartAuction {
         uint currentBlock = block.number;
         //require((creationBlock + preBiddingLength + biddingLength + postBiddingLength) > currentBlock, "The auction is already concluded!");
         
-        if((creationBlock + preBiddingLength) - 1 >= currentBlock){
+        if((creationBlock + preBiddingLength) >= currentBlock){
             return phase.preBidding;
         }
-        else if((creationBlock + preBiddingLength + biddingLength) - 1 >= currentBlock){
+        else if((creationBlock + preBiddingLength + biddingLength) >= currentBlock){
             return phase.bidding;
         }
-        else if((creationBlock + preBiddingLength + biddingLength + postBiddingLength) - 1 >= currentBlock){
+        else if((creationBlock + preBiddingLength + biddingLength + postBiddingLength) >= currentBlock){
             return phase.postBidding;
         }
         else{
@@ -71,15 +71,16 @@ contract smartAuction {
     //internal function, used to refund the bidder
     //Note: if amount is lower than how much the bidder spent, the leftovers remains on the contract as a fee!
     function refundTo(address payable bidder, uint amount) internal  {
-        require(amount > 0, "amount needs to be higher than zero!");
-        require(amount <= bidders[bidder], "you don't have to refund that much!");
+        if(amount > 0){
+            require(amount <= bidders[bidder], "you don't have to refund that much!");
         
-        uint total = bidders[bidder];
-        if (total > 0) {
-            bidders[bidder] = 0;
+            uint total = bidders[bidder];
+            if (total > 0) {
+                bidders[bidder] = 0;
 
-            bidder.transfer(amount);
-            emit refundEvent(bidder, amount);
+                bidder.transfer(amount);
+                emit refundEvent(bidder, amount);
+            }
         }
     }
     /*
@@ -131,8 +132,8 @@ contract smartAuction {
     
     //debug function: used to create a fake transaction
     function wait() public returns (phase) {
-        emit logEvent("wait");
-        
+        emit logEvent("block.num", block.number);
+
         return getCurrentPhase();
     }
     

@@ -175,6 +175,8 @@ class App extends Component {
 										account={this.state.account} 
 										contracts={this.state.contracts}
 										dispatcher={this.dispatcher}
+										web3={this.web3}
+										currentBlock={this.state.currentBlock}
 									/>
 								</Paper>
 							</Grid>

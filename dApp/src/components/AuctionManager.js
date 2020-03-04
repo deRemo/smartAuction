@@ -85,6 +85,7 @@ class AuctionManager extends Component {
 
 				//show notification
 				this.handleSnackBar(true, msg);
+				console.log(msg);
 			}
 			else{
 				console.error("AUCTIONEND NOTIFICATION ERROR: INCOMPLETE DATA")
@@ -96,10 +97,23 @@ class AuctionManager extends Component {
 		this.props.dispatcher.addEventSubscriber("refund", 0, (data) => {
 			if(data.addr !== undefined && data.amount !== undefined){
 				//show notification
-				this.handleSnackBar(true, "refunded by auction "+data.addr+" ( "+data.amount+" wei )");
+				const msg = "refunded by auction "+data.addr+" ( "+data.amount+" wei )"
+				this.handleSnackBar(true, msg);
+				console.log(msg)
 			}
 			else{
 				console.error("REFUND NOTIFICATION ERROR: INCOMPLETE DATA")
+			}
+		});
+
+		//subscribe to log event for debug purposes
+		this.props.dispatcher.addEventSubscriber("debug", 0, (data) => {
+			if(data.msg !== undefined && data.val !== undefined){
+				//show notification
+				this.handleSnackBar(true, "msg: "+data.msg+"  |  val: "+data.val);
+			}
+			else{
+				console.error("DEBUG NOTIFICATION ERROR: INCOMPLETE DATA")
 			}
 		});
     }
@@ -136,6 +150,8 @@ class AuctionManager extends Component {
 								auction_json={this.props.contracts[this.state.auctions[addr]]}
 								account={this.props.account}
 								dispatcher={this.props.dispatcher}
+								web3={this.props.web3}
+								currentBlock={this.props.currentBlock}
                             />
                         </Grid>
                     ))}

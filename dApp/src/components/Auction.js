@@ -42,27 +42,32 @@ const styles = (theme) => ({
     },
 });
 
-//enum: phases of an auction (prebid, bid, postbid and end)
+//enum: phases of an auction
 const phases = Object.freeze({
-	PREBID : '0',
-	BID : '1',
-	POSTBID : '2', 
-	END : '3'
+	PREBID : 0,
+    BID : 1,
+    //Special "subcases" of BID for vickery auction
+    COMMIT : 1.1,
+    WITHDRAW : 1.2,
+    //
+    POSTBID : 2, 
+    END : 3
 });
 
-//Since using "0,1,2,3" or "PREBID, BID, POSTBID" is not very human readable,
 //the following enums propose prettier names to display to the end-user
+//(phase -> "pretty_phase")
 const en_pretty_phases = Object.freeze({
-    '0' : 'GRACE',
-    '1' : 'BID',
+    0 : 'GRACE',
+    1 : 'BID',
     //phase 2 (postbid) is not used in english auction
-    '3' : 'END'
+    3 : 'END'
 });
 const vk_pretty_phases = Object.freeze({
-    '0' : 'GRACE',
-    '1' : 'COMMIT / WITHDRAW',
-    '2' : 'REVEAL',
-    '3' : 'END' 
+    0 : 'GRACE',
+    1.1 : 'COMMIT',
+    1.2 : 'WITHDRAW',
+    2 : 'REVEAL',
+    3 : 'END'
 });
 
 //enum: types of contract
@@ -90,6 +95,7 @@ class Auction extends Component {
             pretty_phases : (isEnglish) ? en_pretty_phases : vk_pretty_phases,
             icon_color : (isEnglish) ? "primary" : "error",
             bid_value : '',
+            nonce_value : '',
         }
     }
 
@@ -109,23 +115,28 @@ class Auction extends Component {
             this.setState({
                 //general information about the auction,
                 seller: await instance.getSeller(),
-                preBiddingLength: (await instance.getPreBiddingLength()).toString(),
-                biddingLength: (await instance.getBiddingLength()).toString(),
-                postBiddingLength: (await instance.getPostBiddingLength()).toString(),
-                auctionLength: (await instance.getAuctionLength()).toString(),
-                currentPhase: (await instance.getCurrentPhase()).toString(),
+                creationBlock: parseInt(await instance.getCreationBlock(), 10),
+                preBiddingLength: parseInt(await instance.getPreBiddingLength(), 10),
+                biddingLength: parseInt(await instance.getBiddingLength(), 10),
+                postBiddingLength: parseInt(await instance.getPostBiddingLength(), 10),
+                auctionLength: parseInt(await instance.getAuctionLength(), 10),
                 winning_bidder : await instance.getWinningBidder(),
-                winning_bid : (await instance.getWinningBid()).toString(),
+                winning_bid : parseInt((await instance.getWinningBid()), 10),
                 finalized: await instance.isFinalized(),
 
                 //auction type specific informations
-                increment : (isEnglish) ? (await instance.getIncrement()).toString() : undefined,
-                buy_out : (isEnglish) ? (await instance.getBuyOutPrice()).toString() : undefined,
+                increment : (isEnglish) ? parseInt(await instance.getIncrement(), 10) : undefined,
+                buy_out : (isEnglish) ? parseInt(await instance.getBuyOutPrice(), 10) : undefined,
 
-                deposit : (isEnglish) ? undefined : (await instance.getDeposit()).toString(),
-                is_commit_phase : (isEnglish) ? undefined : (await instance.isBidCommitPhase()),
-                is_withdraw_phase : (isEnglish) ? undefined : (await instance.isBidWithdrawPhase()),
-                account_committed : (isEnglish) ? undefined : (await instance.userCommitted()),
+                deposit : (isEnglish) ? undefined : parseInt(await instance.getDeposit(), 10),
+                bidCommitLength : (isEnglish) ? undefined : parseInt(await instance.getBidCommitLength(), 10),
+                bidWithdrawLength : (isEnglish) ? undefined : parseInt(await instance.getBidWithdrawLength(), 10),
+                account_committed : (isEnglish) ? undefined : (await instance.userCommitted(this.props.account)),
+            })
+
+            //now that everything is set up, I can calculate the auction's phase
+            this.setState({
+                currentPhase : this.getCurrentPhase(),
             })
         });
 
@@ -134,11 +145,9 @@ class Auction extends Component {
             /* SUBSCRIBE TO "LOCAL" (i.e. events in the dApp itself) EVENTS*/
             //subscribe to the dispatcher in order to listen to new mined blocks
             this.props.dispatcher.addEventSubscriber("newBlock", this.state.addr, () => { 
-                //check the current phase
-                instance.getCurrentPhase().then(async(phase) => {
-                    this.setState({
-                        currentPhase : phase.toString(),
-                    });
+                //calculate new current phase
+                this.setState({
+                    currentPhase : this.getCurrentPhase(),
                 })
 
                 //check if finalized
@@ -146,14 +155,11 @@ class Auction extends Component {
                     this.setState({finalized : res});
                 }); 
 
-                //if vickery auction, you also have to check the "subphases" of the bidding phase
                 if(this.state.type === types.VICKERY){
-                    instance.isBidCommitPhase().then(async(res) => {
-                        this.setState({is_commit_phase : res});
-                    });
-
-                    instance.isBidCommitPhase().then(async(res) => {
-                        this.setState({is_withdraw_phase : res});
+                    instance.userCommitted(this.props.account).then(async(res) => {
+                        this.setState({
+                            account_committed : res,
+                        });
                     });
                 }
             });
@@ -161,7 +167,7 @@ class Auction extends Component {
             //In vickery auctions, you have to check if the user has committed to the auction
             if(this.state.type === types.VICKERY){
                 this.props.dispatcher.addEventSubscriber("accountSwitch", this.state.addr, () => { 
-                    instance.userCommitted().then(async(res) => {
+                    instance.userCommitted(this.props.account).then(async(res) => {
                         this.setState({
                             account_committed : res,
                         });
@@ -175,8 +181,20 @@ class Auction extends Component {
                 console.log("newHighestBidEvent", event);
                 this.setState({
                     winning_bidder : event.returnValues[0],
-                    winning_bid : event.returnValues[1]
+                    winning_bid : parseInt(event.returnValues[1], 10)
                 })
+
+                //if english auction, the bidding time is "artificially" stretched everytime
+                //there is a new winning bid
+                if(this.state.type === types.ENGLISH){
+                    instance.getBiddingLength().then(async(res) => {
+                        this.setState({biddingLength : parseInt(res, 10) });
+                    })
+
+                    instance.getAuctionLength().then(async(res) => {
+                        this.setState({auctionLength : parseInt(res, 10) });
+                    })
+                }
             });
 
             instance.finalizeEvent().on('data', (event) =>{
@@ -185,7 +203,7 @@ class Auction extends Component {
                 //dispatch a new event to notify the end of the auction
                 this.props.dispatcher.dispatch('auctionEnd', { addr : this.state.addr,
                                                                winning_bidder : event.returnValues[0],
-                                                               winning_bid : event.returnValues[1] });
+                                                               winning_bid : parseInt(event.returnValues[1], 10) });
             });
 
             instance.noWinnerEvent().on('data', () =>{
@@ -193,6 +211,15 @@ class Auction extends Component {
 
                 //dispatch a new event to notify the end of the auction
                 this.props.dispatcher.dispatch('auctionEnd', { addr : this.state.addr });
+            });
+
+            //debug event
+            instance.logEvent().on('data', (event) =>{
+                //dispatch a new event to notify the debug message
+                this.props.dispatcher.dispatch('debug', { msg : event.returnValues[0], 
+                                                          val : event.returnValues[1] });
+
+                console.log("msg: "+event.returnValues[0]+"  |  val: "+event.returnValues[1]);
             });
 
             instance.refundEvent().on('data', (event) =>{
@@ -215,8 +242,8 @@ class Auction extends Component {
     //>the amount has to be greater or equal to the requested buy out
     buyOutConditions = () => {
         return this.bidConditions() &&
-               parseInt(this.state.buy_out) !== 0 &&
-               parseInt(this.state.bid_value) >= parseInt(this.state.buy_out);
+               this.state.buy_out !== 0 &&
+               parseInt(this.state.bid_value) >= this.state.buy_out;
     };
 
     //send the buyout transaction
@@ -236,7 +263,7 @@ class Auction extends Component {
     //check if the bid conditions for english auction are satisfied
     englishBidConditions = () => {
         return this.bidConditions() &&
-               parseInt(this.state.bid_value) >= parseInt(this.state.winning_bid) + parseInt(this.state.increment);
+               parseInt(this.state.bid_value) >= this.state.winning_bid + this.state.increment;
     }
 
     //send the bid transaction
@@ -255,16 +282,46 @@ class Auction extends Component {
 
     /* VICKERY AUCTION FUNCTIONS */
     commitConditions = () => {
-        return this.bidConditions() &&
-               this.state.is_commit_phase &&
-               this.state.account_committed && 
-               parseInt(this.state.bid_value) >= parseInt(this.state.deposit);
+        return this.state.currentPhase === phases.COMMIT &&
+               !this.state.account_committed && 
+               parseInt(this.state.bid_value) >= this.state.deposit;
+    }
+
+    handleCommitButton = () => {
+        if(this.commitConditions()){
+            //create hash
+            const hashedMsg = this.props.web3.utils.soliditySha3({'uint32' : this.state.nonce_value, 'uint' : this.state.bid_value});
+            console.log(hashedMsg);
+            console.log(this.props.web3.utils.fromAscii(hashedMsg));
+            
+            //send transaction
+            this.state.contract.at(this.state.addr).then(async(instance) => {
+                instance.test_bid(this.state.nonce_value, this.state.bid_value, {from : this.props.account, value : this.state.deposit});
+            }).catch(err => {
+                console.log('error: ', err.message);
+            });
+        }
+        else{
+            console.error("not commit phase");
+        }
     }
 
     withdrawConditions = () => {
-        return this.bidConditions() &&
-               !this.state.is_commit_phase &&
-               this.state.is_withdraw_phase;
+        return this.state.currentPhase === phases.WITHDRAW;
+    }
+
+    handleWithdrawButton = () => {
+        if(this.withdrawConditions()){
+            //send transaction
+            this.state.contract.at(this.state.addr).then(async(instance) => {
+                instance.withdraw({from : this.props.account});
+            }).catch(err => {
+                console.log('error: ', err.message);
+            });
+        }
+        else{
+            console.error("not withdraw phase");
+        }
     }
 
     revealConditions = () => {
@@ -272,13 +329,59 @@ class Auction extends Component {
                this.state.account_committed;
     }
 
+    handleRevealButton = () => {
+        if(this.revealConditions()){
+            //send transaction
+            this.state.contract.at(this.state.addr).then(async(instance) => {
+                instance.reveal(this.state.nonce_value, {from : this.props.account, value : this.state.bid_value});
+            }).catch(err => {
+                console.log('error: ', err.message);
+            });
+        }
+        else{
+            console.error("not reveal phase");
+        }
+    }
+
     /* GENERIC AUCTION FUNCTIONS */
+
+    //Used to calculate the phase of the auction
+    //(this way I can avoid calling the contract at every new mined block)
+    getCurrentPhase = () => {
+        const currentBlock = this.props.currentBlock + 1;
+
+        if((this.state.creationBlock + this.state.preBiddingLength) >= currentBlock){
+            return phases.PREBID;
+        }
+        else if((this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength) >= currentBlock){
+            if(this.state.type === types.ENGLISH){
+                return phases.BID;
+            }
+            else{
+                const bid_phase = this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength;
+
+                if((bid_phase - this.state.bidCommitLength) >= currentBlock){
+                    return phases.COMMIT;
+                }
+                else{
+                    return phases.WITHDRAW;
+                }
+            }
+        }
+        else if((this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength + this.state.postBiddingLength) >= currentBlock){
+            return phases.POSTBID;
+        }
+        else{
+            return phases.END;
+        }
+    }
+
     //check if the generic bid conditions are satisfied:
     //>bid only if it is bidding time
     //>numbers only
     //>no empty value
     bidConditions = () =>{
-        return this.state.currentPhase === phases.BID &&
+        return this.getCurrentPhase() === phases.BID &&
                this.state.bid_value.match(/[a-z]/i) === null && 
                this.state.bid_value !== "";
     }
@@ -311,6 +414,29 @@ class Auction extends Component {
     };
 
     /* UI FUNCTIONS */
+
+    //open and close the Auction Dialog, which is used to interact with it
+    //and display the auction's infos
+    handleDisplayDialog = (flag) => {
+        this.setState({open_dialog : flag,
+                       bid_value : '',
+                       nonce_value : ''});
+    };
+
+    //get the bid value from the text field and store it in the state
+    handleTextFieldChange = (e) => {
+        if(e.target.id === "commit-field" || e.target.id === "bid-field"){
+            this.setState({
+                bid_value : e.target.value,
+            });
+        }
+        else{
+            this.setState({
+                nonce_value : e.target.value,
+            });
+        }
+    };
+
     //input field condition: empty field or numbers only
     inputFieldCondition = (field) =>{
         return field === "" || field.match(/^\d+$/) !== null;
@@ -344,23 +470,11 @@ class Auction extends Component {
                     Commit / Withdraw period (in blocks): <b>{this.state.biddingLength} </b><br/>
                     Reveal period (in blocks): <b>{this.state.postBiddingLength} </b><br/>
                     Total auction length (in blocks): <b>{this.state.auctionLength} </b><br/>
-                    Current phase: <b>{this.state.pretty_phases[this.state.currentPhase]} </b>
+                    Current phase: <b>{this.state.pretty_phases[this.state.currentPhase]} </b><br/>
                 </DialogContentText>
             );
         }
     }
-
-    //open and close the Auction Dialog (used to show the auction's infos)
-    handleDisplayDialog = (flag) => {
-        this.setState({open_dialog : flag});
-    };
-
-    //get the bid value from the text field and store it in the state
-    handleTextFieldChange = (e) => {
-        this.setState({
-            bid_value : e.target.value,
-        });
-    };
 
     //Render different functionalities, depending on the auction type
     actionAreaByType = (props) => {
@@ -409,29 +523,42 @@ class Auction extends Component {
                     justify="flex-end"
                 >
                     <TextField 
-                        id="committ-field"
-                        label="hash (in byte32)"
+                        id="commit-field"
+                        label="Committed value (in wei)"
                         onChange={this.handleTextFieldChange}
                         error={!this.inputFieldCondition(this.state.bid_value)}
-                        helperText={!this.inputFieldCondition(this.state.bid_value) ? 'Numbers only!' : ''}
-                        margin="normal"
                         fullWidth
                     />
-                    <Button id="commit-button" onClick={this.handleBidButton} color="primary">
+                    <TextField 
+                        id="nonce-field"
+                        label="nonce (in numbers)"
+                        onChange={this.handleTextFieldChange}
+                        error={!this.inputFieldCondition(this.state.nonce_value)}
+                        helperText={"NOTE: by pressing COMMIT, you accept to spend "+this.state.deposit+" wei as a deposit"}
+                        fullWidth
+                    />
+                    <Button 
+                        id="commit-button" 
+                        onClick={this.handleCommitButton} 
+                        disabled={!(this.inputButtonConditions(this.state.bid_value) && this.inputButtonConditions(this.state.nonce_value) && this.commitConditions())}
+                        color="primary"
+                    >
                         Commit
                     </Button>
-                    <Button id="withdraw-button" onClick={this.handleBidButton} color="primary">
+                    <Button 
+                        id="withdraw-button" 
+                        onClick={this.handleWithdrawButton}
+                        disabled={!(this.withdrawConditions())}
+                        color="primary"
+                    >
                         Withdraw
                     </Button>
-
-                    <TextField
-                        id="reveal-field"
-                        label="nonce (in uint32)"
-                        margin="normal"
-                        fullWidth
-                        onChange={this.handleTextFieldChange}
-                    />
-                    <Button id="reveal-button" onClick={this.handleBidButton} color="primary">
+                    <Button 
+                        id="reveal-button" 
+                        onClick={this.handleRevealButton} 
+                        disabled={!(this.inputButtonConditions(this.state.bid_value) && this.inputButtonConditions(this.state.nonce_value) && this.revealConditions())}
+                        color="primary"
+                    >
                         Reveal
                     </Button>
                 </Grid>

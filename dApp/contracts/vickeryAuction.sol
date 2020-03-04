@@ -28,7 +28,7 @@ contract vickeryAuction is smartAuction{
     //commit using an hashed message to ensure the bid's secrecy
     function bid(bytes32 hashedMsg) payable public{
         super.bidConditions();
-        require(isBidCommitPhase(), "It is not bid committment time anymore!");
+        require((creationBlock + preBiddingLength + bidCommitLength) >= block.number, "It is not bid committment time anymore!");
         
         uint depositAmount = msg.value;
         address bidder = msg.sender;
@@ -46,11 +46,15 @@ contract vickeryAuction is smartAuction{
     
     function withdraw() public {
         super.bidConditions(); //Because in this case the withdraw require the same conditions of bids!
-        require(!isBidCommitPhase(), "It is still bid committment time!");
-        require(isBidWithdrawPhase(), "It is not withdraw time anymore!");
+        require((creationBlock + preBiddingLength + bidCommitLength) < block.number, "It is still bid committment time!");
+        require((creationBlock + preBiddingLength + bidCommitLength + bidWithdrawLength) >= block.number, "It is not withdraw time anymore!");
         
         address payable bidder = msg.sender;
-        uint refundAmount = bidders[bidder]/2; //they pay half deposit as a fee
+        uint refundAmount = bidders[bidder];
+        
+        if(refundAmount != 1){
+            refundAmount = refundAmount/2; //pay half deposit as a fee
+        }
         commits[bidder] = bytes32(0); //remove committment
         
         refundTo(bidder, refundAmount);
@@ -102,8 +106,8 @@ contract vickeryAuction is smartAuction{
             seller.transfer(price);
             
             bidders[winningBidder] -= price;
-            
             refundTo(winningBidder, bidders[winningBidder]);
+
             emit finalizeEvent(winningBidder, price);
         }
         else{
@@ -114,21 +118,9 @@ contract vickeryAuction is smartAuction{
         }
     }
 
-    //Since smartAuction represents the bid committment and bid withdrawal phases as a single one
-    //(bid_phase = commit_phase + withdraw_phase), I need the following two functions that compute the exact phase 
-    //of the vickery auction
-    
-    function isBidCommitPhase() public view returns(bool){
-        return (creationBlock + preBiddingLength + bidCommitLength) - 1 >= block.number;
-    }
-
-    function isBidWithdrawPhase() public view returns(bool){
-        return (creationBlock + preBiddingLength + bidCommitLength + bidWithdrawLength) - 1 >= block.number;
-    }
-
-    //Checks if the message sender committed to the auction
-    function userCommitted() public view returns(bool){
-        return commits[msg.sender] != 0;
+    //Checks if a certain user committed to the auction
+    function userCommitted(address user) public view returns(bool){
+        return commits[user] != 0;
     }
 
     //Getters
