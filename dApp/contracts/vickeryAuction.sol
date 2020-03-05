@@ -15,7 +15,7 @@ contract vickeryAuction is smartAuction{
     
     uint price; //amount that the winner has to pay (the second highest bid)
     mapping(address => bytes32) commits; //keep track of the hashed committments
-    
+
     constructor(address payable seller, uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
                     smartAuction(seller, _reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
         deposit = _deposit;
@@ -40,7 +40,7 @@ contract vickeryAuction is smartAuction{
     }
     
     //Debug method used to generate and send hashed committment
-    function test_bid(uint32 nonce, uint bidAmount) payable public{
+    function test_bid(bytes32 nonce, uint bidAmount) payable public{
         bid(keccak256(abi.encodePacked(nonce, bidAmount)));
     }
     
@@ -60,7 +60,7 @@ contract vickeryAuction is smartAuction{
         refundTo(bidder, refundAmount);
     }
     
-    function reveal(uint32 nonce) payable public{
+    function reveal(bytes32 nonce) payable public{
         require(getCurrentPhase() == phase.postBidding, "It is not reveal time yet");
         require(commits[msg.sender] != bytes32(0), "You didn't bid in this auction!");
         

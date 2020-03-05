@@ -222,6 +222,17 @@ class Auction extends Component {
                 console.log("msg: "+event.returnValues[0]+"  |  val: "+event.returnValues[1]);
             });
 
+            //hash event
+            if(this.state.type === types.VICKERY){
+                instance.hashEvent().on('data', (event) =>{
+                    //dispatch a new event to notify the debug message
+                    this.props.dispatcher.dispatch('debug', { msg : event.returnValues[0], 
+                                                              val : -1 });
+    
+                    console.log("hash: "+event.returnValues[0]);
+                });
+            }
+
             instance.refundEvent().on('data', (event) =>{
                 console.log("refundEvent", event);
 
@@ -232,6 +243,20 @@ class Auction extends Component {
                                                                amount : event.returnValues[1] });
                 }
             });
+        });
+    }
+
+    //Update one auction's information, by passing the auction's function and the
+    //related field. NOTE: uints are converted to BigNumber in javascript, therefore
+    //set the isUint flag to true to convert it back to int
+    updateInfo = (fun, field, isUint = false) => {
+        fun().then(async(result) => {
+
+            if(isUint){
+                result = parseInt(result, 10);
+            }
+
+            this.setState({field : result}); 
         });
     }
 
@@ -290,13 +315,12 @@ class Auction extends Component {
     handleCommitButton = () => {
         if(this.commitConditions()){
             //create hash
-            const hashedMsg = this.props.web3.utils.soliditySha3({'uint32' : this.state.nonce_value, 'uint' : this.state.bid_value});
+            const hashedMsg = this.props.web3.utils.keccak256(this.props.web3.eth.abi.encodeParameters(['bytes32', 'uint'], [this.props.web3.utils.asciiToHex(this.state.nonce_value), this.state.bid_value]));
             console.log(hashedMsg);
-            console.log(this.props.web3.utils.fromAscii(hashedMsg));
             
             //send transaction
             this.state.contract.at(this.state.addr).then(async(instance) => {
-                instance.test_bid(this.state.nonce_value, this.state.bid_value, {from : this.props.account, value : this.state.deposit});
+                instance.bid(hashedMsg, {from : this.props.account, value : this.state.deposit});
             }).catch(err => {
                 console.log('error: ', err.message);
             });
@@ -333,7 +357,7 @@ class Auction extends Component {
         if(this.revealConditions()){
             //send transaction
             this.state.contract.at(this.state.addr).then(async(instance) => {
-                instance.reveal(this.state.nonce_value, {from : this.props.account, value : this.state.bid_value});
+                instance.reveal(this.props.web3.utils.fromAscii(this.state.nonce_value), {from : this.props.account, value : this.state.bid_value});
             }).catch(err => {
                 console.log('error: ', err.message);
             });

@@ -16,7 +16,7 @@ contract smartAuction {
     uint biddingLength; //bidding time period, in blocks
     uint postBiddingLength; //post bidding time period, in blocks
     
-    event logEvent(string msg, uint val); //debug
+    event logEvent(string message, uint val); //debug
     event newHighestBidEvent(address bidder, uint amount); //notify new highest bid
     event finalizeEvent(address bidder, uint amount); //notify that the auction has ended and the good has been payed
     event noWinnerEvent(); //notify that the auction has ended with no winner
