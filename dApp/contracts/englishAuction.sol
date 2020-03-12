@@ -2,7 +2,7 @@ pragma solidity ^0.5.3;
 import "./smartAuction.sol";
 
 /* 
-pre bidding phase: grace period, length = 30
+pre bidding phase: grace period, length = 30 (0 if debugging)
 bidding phase: buyout then bids, length depends on the unchalleged time
 post bidding phase: not used, length = 0
 end phase: finalize

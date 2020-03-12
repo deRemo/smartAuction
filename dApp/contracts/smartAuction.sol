@@ -2,7 +2,8 @@ pragma solidity ^0.5.3;
 
 //smart auction base contract
 contract smartAuction {
-    address payable seller;
+    address payable auctioneer; //the owner of the auction factory
+    address payable seller; //the user that creates an auction (through the auction factory)
     mapping(address => uint) bidders; //maps bidders to the amount they spent
     bool finalized; //set at true when the payment is finalized, to avoid multiple unwanted transfers 
     
@@ -26,6 +27,7 @@ contract smartAuction {
     constructor(address payable _seller, uint _reservePrice, uint _preBiddingLength, uint _biddingLength, uint _postBiddingLength) public {
         require(_biddingLength > 0, "You must specify the bidding time(in block) and reserve price!");
         seller = _seller;
+        auctioneer = msg.sender;
         creationBlock = block.number;
         
         preBiddingLength = _preBiddingLength;
@@ -36,7 +38,7 @@ contract smartAuction {
     }
     
     //determine the phase of the auction
-    function getCurrentPhase() public view returns (phase) {
+    function getCurrentPhase() internal view returns (phase) {
         uint currentBlock = block.number;
         //require((creationBlock + preBiddingLength + biddingLength + postBiddingLength) > currentBlock, "The auction is already concluded!");
         
@@ -83,43 +85,6 @@ contract smartAuction {
             }
         }
     }
-    /*
-    function refundTo(address bidder, uint amount) internal returns (bool){
-        //require(amount > 0, "amount needs to be higher than zero!");
-        //require(amount <= bidders[bidder], "you don't have to refund that much!");
-        uint total = bidders[bidder];
-        
-        if(total > 0){
-            bidders[bidder] = 0;
-            if(amount > 0 && amount <= total){
-                if(!bidder.send(amount)){
-                    bidders[bidder] = total;
-                
-                    return false;
-                }
-                
-                emit refundEvent(bidder, amount);
-            }
-        }
-        
-        return true;
-    }*/
-    /*
-    function refundTo(address bidder, uint amount) internal returns (bool){
-        require(amount > 0, "amount needs to be higher than zero!");
-        require(amount <= bidders[bidder], "you don't have to refund that much!");
-        
-        uint total = bidders[bidder];
-        bidders[bidder] = 0;
-        if(!bidder.send(amount)){
-            bidders[bidder] = total;
-        
-            return false;
-        }
-        
-        emit refundEvent(bidder, amount);
-        return true;
-    }*/
     
     //default finalize conditions
     function finalizeConditions() public{
@@ -140,11 +105,18 @@ contract smartAuction {
     //finalize method: not implemented in order to make the contract abstract
     function finalize() public;
     
-    function isFinalized() public view returns(bool){
-        return finalized;
+    //Used to destroy the contract and send the fees to the auctioneer
+    function collect() public{
+        require(finalized, "Auction hasn't finished yet");
+
+        selfdestruct(auctioneer);
     }
 
     //Getters
+
+    function isFinalized() public view returns(bool){
+        return finalized;
+    }
 
     function getSeller() public view returns(address){
         return seller;

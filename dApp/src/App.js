@@ -6,12 +6,12 @@ import Typography from '@material-ui/core/Typography';
 import Box from '@material-ui/core/Box';
 import Paper from '@material-ui/core/Paper';
 import Grid from '@material-ui/core/Grid';
-import Button from '@material-ui/core/Button';
 
 //contract part
 import Web3 from 'web3';
 import TruffleContract from 'truffle-contract';
 
+import smartAuction from './build/contracts/smartAuction.json';
 import englishAuction from './build/contracts/englishAuction.json';
 import vickeryAuction from './build/contracts/vickeryAuction.json';
 import smartAuctionFactory from './build/contracts/smartAuctionFactory.json';
@@ -20,6 +20,7 @@ import smartAuctionFactory from './build/contracts/smartAuctionFactory.json';
 import NavBar from "./components/Navbar";
 import AuctionCreator from "./components/AuctionCreator";
 import AuctionManager from "./components/AuctionManager";
+import FactoryManager from "./components/FactoryManager";
 
 //utils
 import EventDispatcher from "./utils/EventDispatcher";
@@ -43,6 +44,7 @@ const styles = theme => ({
 
 //enum: types of contract
 const types = {
+	BASE: 'smartAuction',
 	ENGLISH: 'englishAuction',
 	VICKERY: 'vickeryAuction',
 	FACTORY: 'smartAuctionFactory'
@@ -88,21 +90,13 @@ class App extends Component {
 		};
 
 		//exec aux function
+		retrieveContract(types.BASE, smartAuction);
 		retrieveContract(types.ENGLISH, englishAuction);
 		retrieveContract(types.VICKERY, vickeryAuction);
 		retrieveContract(types.FACTORY, smartAuctionFactory);
 	}
 
 	componentDidMount(){
-		/*//Get current account
-		this.web3.eth.getCoinbase(async(err, account) => {
-            if(!err) {
-				//convert address in mixed case (as stored in the contracts)
-				this.setState({ account : this.web3.utils.toChecksumAddress(account) });
-				console.log("Account Address: "+ this.state.account);
-            }
-		});*/
-
 		//set an interval to get the current account and detect when 
 		//it is changed (as recommended by metamask)
 		setInterval(() => {
@@ -142,20 +136,6 @@ class App extends Component {
 				this.dispatcher.dispatch('newBlock', event.number);
 			}
 		});
-
-		//console.log(this.web3.utils.soliditySha3({'uint32' : '10', 'uint' : '10'}));
-
-		//const encoded = this.web3.eth.abi.encodeParameters(['uint32','uint'], ['10', '10']);
-		//console.log(this.web3.utils.sha3(encoded));
-	}
-
-	//create a new factory contract
-	handleFactoryDeploy = () => {
-		this.state.contracts[types.FACTORY].new({from: this.state.account}).then(async(instance) => {
-			console.log('factory contract deployed at address '+ instance.address);
-		}).catch(err => {
-			console.log('error: factory contract not deployed', err);
-		});
 	}
 
 	render(){
@@ -190,9 +170,12 @@ class App extends Component {
 								<Paper className={classes.paper}>
 									auctioneer
 									<p></p>
-									<Button onClick={() => this.handleFactoryDeploy()} color="primary">
-										Deploy Auction Factory!
-									</Button>
+									<FactoryManager
+										types={types}
+										account={this.state.account}
+										contracts={this.state.contracts}
+										dispatcher={this.dispatcher}
+									/>
 								</Paper>
 							</Grid>
 						</Grid>

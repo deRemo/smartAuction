@@ -7,7 +7,7 @@ import "./vickeryAuction.sol";
 contract smartAuctionFactory{
     address[] public englishAuctions;
     address[] public vickeryAuctions;
-    address owner;
+    address payable owner;
     
     event newEnglishAuctionEvent(address addr); //notify the deployment of a new english auction
     event newVickeryAuctionEvent(address addr); //notify the deployment of a new vickery auction
@@ -16,6 +16,7 @@ contract smartAuctionFactory{
         owner = msg.sender;
     }
     
+    //deploy english
     function deployEnglishAuction(uint _reservePrice, uint _buyOutPrice, uint _unchallegedLength, uint _increment) public returns (address) {
         englishAuction auction = new englishAuction(msg.sender, _reservePrice, _buyOutPrice, _unchallegedLength, _increment);
         address addr = address(auction);
@@ -26,6 +27,7 @@ contract smartAuctionFactory{
         return addr;
     }
     
+    //deploy vickery
     function deployVickeryAuction(uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) public returns (address) {
         vickeryAuction auction = new vickeryAuction(msg.sender, _reservePrice, _deposit, _bidCommitLength, _bidWithdrawLength, _bidOpeningLength);
         address addr = address(auction);
@@ -34,6 +36,17 @@ contract smartAuctionFactory{
         emit newVickeryAuctionEvent(addr);
 
         return addr;
+    }
+
+    //used to destroy the auction factory
+    function closeFactory() public{
+        require(msg.sender == owner, "you are not the owner of the auction factory!");
+
+        selfdestruct(owner);
+    }
+
+    function getOwner() public view returns(address){
+        return owner;
     }
 
     function getEnglishAuctions() public view returns(address[] memory){

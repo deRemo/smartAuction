@@ -24,7 +24,7 @@ class AuctionManager extends Component {
     }
     
     componentDidMount(){
-		//Retrive the factory instance
+		//Retrieve the factory instance
 		this.props.contracts[this.props.types.FACTORY].deployed().then(async(instance) => {
 			console.log("factory contract: ", instance);
 
@@ -35,6 +35,9 @@ class AuctionManager extends Component {
 
 					//add auction to the manager grid
 					this.addAuction(event.returnValues[0], type);
+
+					//snackbar notification
+					this.handleSnackBar(true, "New "+type+" at "+event.returnValues[0]);
 				});
 			};
 
@@ -44,17 +47,26 @@ class AuctionManager extends Component {
 
 			//Don't render the finalized auctions
 			const removeFinalizedAuctions = (auctions, type) => {
-				if(auctions != null){
+				if(auctions.length > 0){
 					auctions.forEach((addr) => {
-						//retrieve auction instance
-						this.props.contracts[type].at(addr).then(async(instance) => {
-							//if finalized, remove the auction from the list
-							instance.isFinalized().then((finalized) => {
-								if(!finalized){
-									this.addAuction(addr, type);
-								}
-							});
-						});
+						this.props.web3.eth.getCode(addr).then((res) => {
+							//check that the auction didn't self-destruct
+							if(res !== "0x" && res !== "0x0"){
+								//retrieve auction instance
+								this.props.contracts[type].at(addr).then(async(instance) => {
+									//if finalized, remove the auction from the list
+									instance.isFinalized().then((finalized) => {
+										if(!finalized){
+											this.addAuction(addr, type);
+										}
+										else{
+											//notify the factory manager about the finalized auction
+											this.props.dispatcher.dispatch('finalized', { addr : addr });
+										}
+									});
+								});
+							}
+						}).catch(err => {console.log(err)});
 					});
 				}
 			}
@@ -62,11 +74,12 @@ class AuctionManager extends Component {
 			//exec aux function
 			instance.getEnglishAuctions().then(async(auctions) => { 
 				removeFinalizedAuctions(auctions, this.props.types.ENGLISH);
-			});
+			}).catch(err => {console.error("did you deploy the auction factory via truffle migrate?", err)});
+			
 			instance.getVickeryAuctions().then(async(auctions) => { 
 				removeFinalizedAuctions(auctions, this.props.types.VICKERY);
-			});
-		});
+			}).catch(err => {console.error("did you deploy the auction factory via truffle migrate?", err)});
+		}).catch(err => {console.error("did you deploy the auction factory via truffle migrate?", err)});
 
 		//subscribe to the dispatcher in order to listen to finalized auctions
 		//and display an alert
@@ -142,6 +155,7 @@ class AuctionManager extends Component {
             <React.Fragment>
                 <Grid container className={classes.root} spacing={2} direction="column-reverse" justify="space-evenly" alignItems="stretch">
                     {/* map each auction to a card */}
+					
 					{Object.keys(this.state.auctions).map((addr) => (
                         <Grid key={addr} item>
                            <Auction 
