@@ -19,7 +19,7 @@
  */
 
 const HDWalletProvider = require('truffle-hdwallet-provider'); //install from npm
-const infuraKey = "4c894e9b85d94388864fec0539eb49f4"; //infura project id
+const infuraKey = "610cee94da8641f392f0b8488db91a24"; //infura project id
 
 const fs = require('fs');
 const mnemonic = fs.readFileSync(".secret").toString().trim(); //metamask seed words
@@ -77,7 +77,7 @@ module.exports = {
     // }
     
       ropsten: {
-          provider: () => new HDWalletProvider(mnemonic, `https://ropsten.infura.io/${infuraKey}`),
+          provider: () => new HDWalletProvider(mnemonic, 'https://ropsten.infura.io/${infuraKey}'),
           network_id: 3,
           gas: 5500000,
       },

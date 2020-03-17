@@ -15,7 +15,7 @@ contract englishAuction is smartAuction{
     event buyOutEvent(address bidder, uint amount); //notify that someone buy out the good
     
     constructor(address payable seller, uint _reservePrice, uint _buyOutPrice, uint _unchallegedLength, uint _increment) 
-                    smartAuction(seller, _reservePrice, 0, _unchallegedLength, 0) public {
+                    smartAuction(seller, _reservePrice, 20, _unchallegedLength, 0) public {
         buyOutPrice = _buyOutPrice;
         increment = _increment; 
         unchallegedLength = _unchallegedLength;

@@ -11,14 +11,21 @@ class FactoryManager extends Component {
         this.state = {
             open : false,
             anchorEl : null,
-            auctions : [],
+            auctions : [], //auctions finalized that need to be collected
         }
     }
 
     componentDidMount(){
+        //Retrieve the owner of the factory (the auctioneer)
+        this.props.contracts[this.props.types.FACTORY].deployed().then(async(instance) => {
+            this.setState({
+                auctioneer : await instance.getOwner(),
+            })
+        });
+        
+        //subscribe to the dispatcher in order to receive the addresses
+        //of finalized auctions, in order to collect the fees
         this.props.dispatcher.addEventSubscriber("finalized", 0, (data) => {
-            //subscribe to the dispatcher in order to receive the addresses
-            //of finalized auctions, in order to collect the fees
 			if(data.addr !== undefined){
                 this.setState(oldState => ({
                     auctions : [...oldState.auctions, data.addr],
@@ -38,40 +45,38 @@ class FactoryManager extends Component {
         return this.state.auctions.length > 0;
     }
 
-    handleMenuOpen = event => {
-        if(this.anyAuction()){
+    //Used to open/close the collectable auctions' menu
+    handleMenu = event => {
+        if(this.anyAuction() && this.isOwner() && !this.state.open){
             this.setState({
                 open : true,
                 anchorEl : event.currentTarget,
             });
         }
+        else{
+            this.setState({
+                open : false,
+                anchorEl : null,
+            });
+        }
     };
     
+    //Used to invoke collect() on the selected auction
     handleClick = (auction) =>{
-        this.props.contracts[this.props.types.BASE].at(auction).then(async(instance) => {
-            //collect fee from selected items
-            instance.collect({from : this.props.account}).then(() =>{
-                //filter out the destroyed auction
-                this.setState({
-                    auctions : this.state.auctions.filter((addr) => {
-                                    return addr !== auction;
-                            }),
+        if(this.isOwner()){
+            this.props.contracts[this.props.types.BASE].at(auction).then(async(instance) => {
+                //collect fee from selected items
+                instance.collect({from : this.props.account}).then(() =>{
+                    //filter out the destroyed auction
+                    this.setState({
+                        auctions : this.state.auctions.filter((addr) => { return addr !== auction;}),
+                    });
+                    
+                    //close the menu (if no more auctions to collect)
+                    this.handleMenu();
                 });
-                
-                //Close menu
-                if(!this.anyAuction()){
-                    this.handleClose();
-                }
             });
-        });
-    };
-
-    handleClose = () => {
-        //Close menu
-        this.setState({
-            open : false,
-            anchorEl : null,
-        })
+        }
     };
 
     handleFactoryDestruction = () => {
@@ -88,8 +93,8 @@ class FactoryManager extends Component {
         return(
             <React.Fragment>
                 <Button 
-                    onClick={this.handleMenuOpen}
-                    disabled={!this.anyAuction()}
+                    onClick={this.handleMenu}
+                    disabled={!(this.anyAuction() && this.isOwner())}
                     color="primary"
                 >
                     Collect Fees
@@ -99,7 +104,7 @@ class FactoryManager extends Component {
                     anchorEl={this.state.anchorEl}
                     keepMounted
                     open={this.state.open}
-                    onClose={this.handleClose}
+                    onClose={this.handleMenu}
                     PaperProps={{
                         style: {
                             maxHeight: 48 * 4.5,
