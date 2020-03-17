@@ -1,5 +1,0 @@
-//truffle usage
-
-contractName.deployed().then(function(instance){ app = instance }) //get instance of contractName in app, where contractName is in migrations
-
-app.function(functionParams, {value:web3.utils.toWei('val', 'ether'), from:"addr", gasPrice:"val", gas:"val"}) //invoke function with transaction params
