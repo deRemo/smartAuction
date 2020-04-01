@@ -1,3 +1,4 @@
+.vscode
 dApp/node_modules/*
 dApp/build/*
 dApp_old/src/js/bck
