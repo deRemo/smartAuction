@@ -1,5 +1,6 @@
-//react part
+//react & material-ui
 import React, { Component } from 'react';
+
 import { withStyles } from '@material-ui/core'
 import Container from '@material-ui/core/Container';
 import Typography from '@material-ui/core/Typography';
@@ -7,16 +8,17 @@ import Box from '@material-ui/core/Box';
 import Paper from '@material-ui/core/Paper';
 import Grid from '@material-ui/core/Grid';
 
-//contract part
+//ethereum
 import Web3 from 'web3';
 import TruffleContract from 'truffle-contract';
 
+//contracts
 import smartAuction from './build/contracts/smartAuction.json';
 import englishAuction from './build/contracts/englishAuction.json';
 import vickeryAuction from './build/contracts/vickeryAuction.json';
 import smartAuctionFactory from './build/contracts/smartAuctionFactory.json';
 
-//custom component part
+//custom components
 import NavBar from "./components/Navbar";
 import AuctionCreator from "./components/AuctionCreator";
 import AuctionManager from "./components/AuctionManager";

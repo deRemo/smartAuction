@@ -1,3 +1,4 @@
+//react & material-ui
 import React, { Component } from 'react';
 import { withStyles } from '@material-ui/core'
 import Grid from '@material-ui/core/Grid';
@@ -5,7 +6,8 @@ import Snackbar from '@material-ui/core/Snackbar';
 
 import Auction from "./Auction";
 
-const styles = (theme) => ({
+//styles of the material-ui's components
+const styles = theme => ({
 	root: {
 		flexGrow: 1,
 	},
@@ -74,12 +76,12 @@ class AuctionManager extends Component {
 			//exec aux function
 			instance.getEnglishAuctions().then(async(auctions) => { 
 				removeFinalizedAuctions(auctions, this.props.types.ENGLISH);
-			}).catch(err => {console.error("did you deploy the auction factory via truffle migrate?", err)});
+			}).catch(err => {console.error("DID YOU DEPLOY THE AUCTION FACTORY VIA TRUFFLE MIGRATE?", err)});
 			
 			instance.getVickeryAuctions().then(async(auctions) => { 
 				removeFinalizedAuctions(auctions, this.props.types.VICKERY);
-			}).catch(err => {console.error("did you deploy the auction factory via truffle migrate?", err)});
-		}).catch(err => {console.error("did you deploy the auction factory via truffle migrate?", err)});
+			}).catch(err => {console.error("DID YOU DEPLOY THE AUCTION FACTORY VIA TRUFFLE MIGRATE?", err)});
+		}).catch(err => {console.error("DID YOU DEPLOY THE AUCTION FACTORY VIA TRUFFLE MIGRATE?", err)});
 
 		//subscribe to the dispatcher in order to listen to finalized auctions
 		//and display an alert

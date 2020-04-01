@@ -1,5 +1,6 @@
-//react part
+//react & material-ui
 import React, { Component } from 'react';
+
 import { withStyles } from '@material-ui/core'
 import FormHelperText from '@material-ui/core/FormHelperText';
 import FormControl from '@material-ui/core/FormControl';
@@ -7,9 +8,7 @@ import TextField from '@material-ui/core/TextField';
 import Button from '@material-ui/core/Button';
 import Divider from '@material-ui/core/Divider';
 
-//custom component part (WORK IN PROGRESS)
-//import CustomTextField from "./ui/customTextField";
-
+//styles of the material-ui's components
 const styles = theme => ({
 	root: {
 		display: 'flex',

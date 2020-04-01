@@ -1,3 +1,4 @@
+//react & material-ui
 import React, { Component } from 'react';
 
 import Menu from '@material-ui/core/Menu';
@@ -21,7 +22,7 @@ class FactoryManager extends Component {
             this.setState({
                 auctioneer : await instance.getOwner(),
             })
-        });
+        }).catch(err => {console.error("DID YOU DEPLOY THE AUCTION FACTORY VIA TRUFFLE MIGRATE?", err)});
         
         //subscribe to the dispatcher in order to receive the addresses
         //of finalized auctions, in order to collect the fees
@@ -84,8 +85,8 @@ class FactoryManager extends Component {
             this.props.contracts[this.props.types.FACTORY].deployed().then(async(instance) => {
                 instance.closeFactory({from : this.props.account}).then(() => {
                     console.log("smart auction factory closed");
-                }).catch(err => {console.error("did you deploy the auction factory via truffle migrate?", err)});
-            }).catch(err => {console.error("did you deploy the auction factory via truffle migrate?", err)});
+                }).catch(err => {console.error("DID YOU DEPLOY THE AUCTION FACTORY VIA TRUFFLE MIGRATE?", err)});
+            }).catch(err => {console.error("DID YOU DEPLOY THE AUCTION FACTORY VIA TRUFFLE MIGRATE?", err)});
         }
     }
     

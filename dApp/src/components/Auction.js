@@ -1,3 +1,4 @@
+//react & material-ui
 import React, { Component } from 'react';
 import { withStyles } from '@material-ui/core'
 
@@ -14,11 +15,12 @@ import Button from '@material-ui/core/Button';
 import SwapHorizontalCircleIcon from '@material-ui/icons/SwapHorizontalCircle';
 import Grid from '@material-ui/core/Grid';
 
-//import { MyTextField } from "./customs/AuctionCustoms";
-import EnglishHandlers from './handlers/EnglishHandlers';
-import VickeryHandlers from './handlers/VickeryHandlers';
+//utils
+import EnglishHandlers from '../utils/handlers/EnglishHandlers';
+import VickeryHandlers from '../utils/handlers/VickeryHandlers';
 
-const styles = (theme) => ({
+//styles of the material-ui's components
+const styles = theme => ({
 	root: {
 		flexGrow: 1,
 	},
@@ -225,7 +227,7 @@ class Auction extends Component {
     //Update one auction's information, by passing the auction's function and the
     //related field. NOTE: uints are converted to BigNumber in javascript, therefore
     //set the isUint flag to true to convert it back to int
-    updateInfo = (fun, field, isUint = false) => {
+    /*updateInfo = (fun, field, isUint = false) => {
         fun().then(async(result) => {
 
             if(isUint){
@@ -234,7 +236,7 @@ class Auction extends Component {
 
             this.setState({field : result}); 
         });
-    }
+    }*/
 
     /* GENERIC AUCTION FUNCTIONS */
 

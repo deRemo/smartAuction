@@ -1,3 +1,4 @@
+//react & material-ui
 import React from 'react';
 
 import Button from '@material-ui/core/Button';
@@ -23,11 +24,11 @@ class VickeryHandlers{
         });
     }
 
-    loadInfos = (instance) => {
+    /*loadInfos = (instance) => {
         console.log(instance)
         return {
         };
-    }
+    }*/
     
     commitConditions = (state) => {
         return state.currentPhase === this.phases.COMMIT &&
