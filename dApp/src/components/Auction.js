@@ -255,21 +255,6 @@ class Auction extends Component {
         }
 
         this.setState({remainingBlocks : correct_remainingBlocks});
-        /*
-        const currentBlock = this.props.currentBlock + 1;
-
-        if(phase === phases.PREBID){
-            return this.state.creationBlock + this.state.preBiddingLength - currentBlock + 1;
-        }
-        else if(phase === phases.BID || phase === phases.WITHDRAW){
-            return this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength - currentBlock + 1;
-        }
-        else if(phase === phases.COMMIT){
-            return this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength - this.state.bidCommitLength - currentBlock + 1;
-        }
-        else if(phase === phases.END){
-            return 0;
-        }*/
     }
 
     //check if the auction is finalizable:

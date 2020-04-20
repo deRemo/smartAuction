@@ -23,22 +23,6 @@ class EnglishHandlers{
         });
     }
 
-    /*loadInfos = (state) => {
-        state.contract.at(state.addr).then(async(instance) =>{
-            return {
-                increment : parseInt(await instance.getIncrement(), 10),
-                buy_out : parseInt(await instance.getBuyOutPrice(), 10),
-            };
-        });
-        const increment = instance.getIncrement().then((res) => {
-            return parseInt(res, 10);
-        });
-
-        const buy_out = instance.getBuyOutPrice().then((res) => {
-            return parseInt(res, 10);
-        });
-    }*/
-
     //check if the buyOut conditions are satistied:
     //>bid conditions have to be satisfied
     //>the seller has to enable buy outs
