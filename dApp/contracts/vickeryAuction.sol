@@ -17,7 +17,7 @@ contract vickeryAuction is smartAuction{
     mapping(address => bytes32) commits; //keep track of the hashed committments
 
     constructor(address payable seller, uint _reservePrice, uint _deposit, uint _bidCommitLength, uint _bidWithdrawLength, uint _bidOpeningLength) 
-                    smartAuction(seller, _reservePrice, 20, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
+                    smartAuction(seller, _reservePrice, 0, _bidCommitLength + _bidWithdrawLength, _bidOpeningLength) public {
         deposit = _deposit;
         
         bidCommitLength = _bidCommitLength;
@@ -61,7 +61,7 @@ contract vickeryAuction is smartAuction{
     }
     
     function reveal(bytes32 nonce) payable public{
-        require(getCurrentPhase() == phase.postBidding, "It is not reveal time yet");
+        require(getCurrentPhase(block.number) == phase.postBidding, "It is not reveal time yet");
         require(commits[msg.sender] != bytes32(0), "You didn't bid in this auction!");
         
         uint amount = msg.value;

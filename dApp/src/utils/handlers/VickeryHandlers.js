@@ -23,12 +23,6 @@ class VickeryHandlers{
             3 : 'END'
         });
     }
-
-    /*loadInfos = (instance) => {
-        console.log(instance)
-        return {
-        };
-    }*/
     
     commitConditions = (state) => {
         return state.currentPhase === this.phases.COMMIT &&
@@ -94,11 +88,8 @@ class VickeryHandlers{
     renderDisplayArea = (state) => {
         return (
             <DialogContentText>
-                Grace period (in blocks): <b>{state.preBiddingLength}</b><br/>
-                Commit / Withdraw period (in blocks): <b>{state.biddingLength} </b><br/>
-                Reveal period (in blocks): <b>{state.postBiddingLength} </b><br/>
-                Total auction length (in blocks): <b>{state.auctionLength} </b><br/>
                 Current phase: <b>{this.pretty_phases[state.currentPhase]} </b><br/>
+                Phase change in <b>{state.remainingBlocks}</b> blocks <br/>
             </DialogContentText>  
         );
     }

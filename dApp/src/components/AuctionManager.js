@@ -63,7 +63,7 @@ class AuctionManager extends Component {
 										}
 										else{
 											//notify the factory manager about the finalized auction
-											this.props.dispatcher.dispatch('finalized', { addr : addr });
+											this.props.dispatcher.dispatch('collectable', { addr : addr });
 										}
 									});
 								});
@@ -85,7 +85,7 @@ class AuctionManager extends Component {
 
 		//subscribe to the dispatcher in order to listen to finalized auctions
 		//and display an alert
-		this.props.dispatcher.addEventSubscriber("auctionEnd", 0, (data) => {
+		this.props.dispatcher.addEventSubscriber("finalized", 0, (data) => {
 			if(data.addr !== undefined){
 				console.log("remove ended auction");
 				delete this.state.auctions[data.addr];
@@ -101,9 +101,12 @@ class AuctionManager extends Component {
 				//show notification
 				this.handleSnackBar(true, msg);
 				console.log(msg);
+
+				//notify the factory manager about the finalized auction
+				this.props.dispatcher.dispatch('collectable', { addr : data.addr });
 			}
 			else{
-				console.error("AUCTIONEND NOTIFICATION ERROR: INCOMPLETE DATA")
+				console.error("FINALIZED NOTIFICATION ERROR: INCOMPLETE DATA")
 			}
 		});
 

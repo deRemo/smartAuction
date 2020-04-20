@@ -116,15 +116,16 @@ class Auction extends Component {
                 bidWithdrawLength : (isEnglish) ? undefined : parseInt(await instance.getBidWithdrawLength(), 10),
                 account_committed : (isEnglish) ? undefined : (await instance.userCommitted(this.props.account)),
             })
+            
+            //now that everything is set up, get the auction phase and the number of remaining blocks before
+            //the phase changes
+            instance.getCurrentPhase(this.props.currentBlock + 1).then(async(phase) => {
+                this.updateAuctionPhase(phase);
 
-            //load auction specific informations
-            //this.setState(this.handlers.loadInfos(this.state));
-
-            //console.log(this.handlers.loadInfos(instance));
-            //now that everything is set up, I can calculate the auction's phase
-            this.setState({
-                currentPhase : this.getCurrentPhase(),
-            })
+                instance.getRemainingBlocks(this.props.currentBlock + 1, phase).then(async(blocks) =>{
+                    this.updateRemainingBlocks(blocks);
+                });
+            });
         });
 
         //Set up external and internal event listeners
@@ -134,23 +135,30 @@ class Auction extends Component {
             //subscribe to the dispatcher in order to listen to new mined blocks
             this.props.dispatcher.addEventSubscriber("newBlock", this.state.addr, () => { 
                 //update current phase
-                this.setState({
-                    currentPhase : this.getCurrentPhase(),
-                })
+                instance.getCurrentPhase(this.props.currentBlock + 1).then(async(phase) => {
+                    this.updateAuctionPhase(phase);
+    
+                    instance.getRemainingBlocks(this.props.currentBlock + 1, phase).then(async(blocks) =>{
+                        this.updateRemainingBlocks(blocks);
+                    });
+                });
 
-                //update finalized state
-                instance.isFinalized().then(async(res) => {
-                    this.setState({finalized : res});
-                }); 
-
-                //update committed state for the current account, if vickery
+                //if vickery
                 if(this.state.type === types.VICKERY){
+                    //update committed state for the current account
                     instance.userCommitted(this.props.account).then(async(res) => {
                         this.setState({
                             account_committed : res,
                         });
                     });
                 }
+
+                //update finalized state
+                if(this.state.currentPhase === phases.END){
+                    instance.isFinalized().then(async(res) => {
+                        this.setState({finalized : res});
+                    });
+                } 
             });
 
             //In vickery auctions, you have to update the committed state, if the account changes
@@ -172,25 +180,13 @@ class Auction extends Component {
                     winning_bidder : event.returnValues[0],
                     winning_bid : parseInt(event.returnValues[1], 10)
                 })
-
-                //if english auction, the bidding time is "artificially" stretched everytime
-                //there is a new winning bid, therefore I have to update the length values
-                if(this.state.type === types.ENGLISH){
-                    instance.getBiddingLength().then(async(res) => {
-                        this.setState({biddingLength : parseInt(res, 10) });
-                    })
-
-                    instance.getAuctionLength().then(async(res) => {
-                        this.setState({auctionLength : parseInt(res, 10) });
-                    })
-                }
             });
 
             instance.finalizeEvent().on('data', (event) =>{
                 console.log("finalize");
 
                 //dispatch a new event to notify the end of the auction
-                this.props.dispatcher.dispatch('auctionEnd', { addr : this.state.addr,
+                this.props.dispatcher.dispatch('finalized', { addr : this.state.addr,
                                                                winning_bidder : event.returnValues[0],
                                                                winning_bid : parseInt(event.returnValues[1], 10) });
             });
@@ -199,7 +195,7 @@ class Auction extends Component {
                 console.log("no winner");
 
                 //dispatch a new event to notify the end of the auction
-                this.props.dispatcher.dispatch('auctionEnd', { addr : this.state.addr });
+                this.props.dispatcher.dispatch('finalized', { addr : this.state.addr });
             });
 
             //debug event
@@ -224,51 +220,56 @@ class Auction extends Component {
         });
     }
 
-    //Update one auction's information, by passing the auction's function and the
-    //related field. NOTE: uints are converted to BigNumber in javascript, therefore
-    //set the isUint flag to true to convert it back to int
-    /*updateInfo = (fun, field, isUint = false) => {
-        fun().then(async(result) => {
-
-            if(isUint){
-                result = parseInt(result, 10);
-            }
-
-            this.setState({field : result}); 
-        });
-    }*/
-
     /* GENERIC AUCTION FUNCTIONS */
 
-    //Used to calculate the phase of the auction
-    //(this way I can avoid calling the contract at every new mined block)
-    getCurrentPhase = () => {
-        const currentBlock = this.props.currentBlock + 1;
+    //Set up the correct current phase
+    updateAuctionPhase = (phase) => {
+        var correct_phase = parseInt(phase, 10);
 
-        if((this.state.creationBlock + this.state.preBiddingLength) >= currentBlock){
-            return phases.PREBID;
-        }
-        else if((this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength) >= currentBlock){
-            if(this.state.type === types.ENGLISH){
-                return phases.BID;
-            }
-            else{
+        //if vickery and current phase is BID, compute the correct bid subphase: commit or withdraw
+        if(this.state.type === types.VICKERY){
+            if(correct_phase === phases.BID){
                 const bid_phase = this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength;
 
-                if((bid_phase - this.state.bidCommitLength) >= currentBlock){
-                    return phases.COMMIT;
+                if((bid_phase - this.state.bidWithdrawLength) >= this.props.currentBlock + 1){
+                    correct_phase = phases.COMMIT;
                 }
                 else{
-                    return phases.WITHDRAW;
+                    correct_phase = phases.WITHDRAW;
                 }
             }
         }
-        else if((this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength + this.state.postBiddingLength) >= currentBlock){
-            return phases.POSTBID;
+
+        this.setState({currentPhase : correct_phase});
+    }
+
+    //set up the correct remaining blocks before phase change value
+    updateRemainingBlocks = (remainingBlocks) => {
+        var correct_remainingBlocks = parseInt(remainingBlocks, 10); //BN to int
+
+        //if vickery
+        if(this.state.type === types.VICKERY){
+            if(this.state.currentPhase === phases.COMMIT){
+                correct_remainingBlocks = correct_remainingBlocks - this.state.bidWithdrawLength;
+            }
         }
-        else{
-            return phases.END;
+
+        this.setState({remainingBlocks : correct_remainingBlocks});
+        /*
+        const currentBlock = this.props.currentBlock + 1;
+
+        if(phase === phases.PREBID){
+            return this.state.creationBlock + this.state.preBiddingLength - currentBlock + 1;
         }
+        else if(phase === phases.BID || phase === phases.WITHDRAW){
+            return this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength - currentBlock + 1;
+        }
+        else if(phase === phases.COMMIT){
+            return this.state.creationBlock + this.state.preBiddingLength + this.state.biddingLength - this.state.bidCommitLength - currentBlock + 1;
+        }
+        else if(phase === phases.END){
+            return 0;
+        }*/
     }
 
     //check if the auction is finalizable:
@@ -291,9 +292,6 @@ class Auction extends Component {
             this.state.contract.at(this.state.addr).then(async(instance) =>{
                 //finalize the auction
                 instance.finalize({from : this.props.account});
-
-                //notify that an auction has been finalized
-                this.props.dispatcher.dispatch('finalized', { addr : this.state.addr });
             });
         }
         else{
@@ -375,7 +373,7 @@ class Auction extends Component {
                     Auction address: <b>{this.state.addr}</b><br/>
                     Seller: <b>{this.state.seller}</b><br/>
                 </DialogContentText>
-                {this.handlers.renderDisplayArea(this.state)}
+                {this.handlers.renderDisplayArea(this.state, this.props)}
                 <DialogContentText>
                     Winning Bidder: <b>{this.state.winning_bidder}</b><br/>
                     Winning Bid (in wei): <b>{this.state.winning_bid}</b>

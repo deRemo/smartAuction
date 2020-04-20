@@ -6,8 +6,6 @@ import TextField from '@material-ui/core/TextField';
 import Grid from '@material-ui/core/Grid';
 import DialogContentText from '@material-ui/core/DialogContentText';
 
-//import GenericHandlers from './GenericHandlers';
-
 //Specific handlers for english auctions, used to interact with them and
 //manage the UI elements
 class EnglishHandlers{
@@ -23,7 +21,6 @@ class EnglishHandlers{
             //phase 2 (postbid) is not used in english auction
             3 : 'END'
         });
-        //this.gh = new GenericHandlers();
     }
 
     /*loadInfos = (state) => {
@@ -86,13 +83,11 @@ class EnglishHandlers{
         }
     };
 
-    renderDisplayArea = (state) => {
+    renderDisplayArea = (state, props) => {
         return (
             <DialogContentText>
-                Grace period (in blocks): <b>{state.preBiddingLength}</b><br/>
-                Bidding period (in blocks): <b>{state.biddingLength} </b><br/>
-                Total auction length (in blocks): <b>{state.auctionLength} </b><br/>
                 Current phase: <b>{this.pretty_phases[state.currentPhase]} </b><br/>
+                Phase change in <b>{state.remainingBlocks}</b> blocks <br/>
                 Buy Out Price (in wei): <b>{state.buy_out}</b>
             </DialogContentText>
         );

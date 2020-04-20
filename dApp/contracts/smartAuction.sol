@@ -38,10 +38,7 @@ contract smartAuction {
     }
     
     //determine the phase of the auction
-    function getCurrentPhase() internal view returns (phase) {
-        uint currentBlock = block.number;
-        //require((creationBlock + preBiddingLength + biddingLength + postBiddingLength) > currentBlock, "The auction is already concluded!");
-        
+    function getCurrentPhase(uint currentBlock) public view returns (phase) {
         if((creationBlock + preBiddingLength) >= currentBlock){
             return phase.preBidding;
         }
@@ -55,17 +52,33 @@ contract smartAuction {
             return phase.end;
         }
     }
-    
+
+    //Returns the number of remaining blocks before a phase change
+    function getRemainingBlocks(uint currentBlock, phase currentPhase) public view returns (uint) {
+        if(currentPhase == phase.preBidding){
+            return creationBlock + preBiddingLength - currentBlock + 1;
+        }
+        else if(currentPhase == phase.bidding){
+            return creationBlock + preBiddingLength + biddingLength - currentBlock + 1;
+        }
+        else if(currentPhase == phase.postBidding){
+            return creationBlock + preBiddingLength + biddingLength + postBiddingLength - currentBlock + 1;
+        }
+        else if(currentPhase == phase.end){
+            return 0;
+        }
+    }
+
     //default bid conditions
     function bidConditions() view internal{
-        phase _currentPhase = getCurrentPhase();
+        phase _currentPhase = getCurrentPhase(block.number);
         require(_currentPhase != phase.preBidding, "It is not bidding time yet!");
         require(_currentPhase != phase.postBidding || _currentPhase != phase.end, "Auction already ended!");
     }
     
     //default withdraw conditions
     function withdrawConditions() view internal{
-        phase _currentPhase = getCurrentPhase();
+        phase _currentPhase = getCurrentPhase(block.number);
         require(_currentPhase != phase.preBidding, "It is not bidding time yet, so you have nothing to withdraw!");
         require(_currentPhase != phase.bidding, "You can't withdraw during bidding time!");
     }
@@ -88,7 +101,7 @@ contract smartAuction {
     
     //default finalize conditions
     function finalizeConditions() public{
-        require(getCurrentPhase() == phase.end, "Auction hasn't ended yet");
+        require(getCurrentPhase(block.number) == phase.end, "Auction hasn't ended yet");
         require(!finalized, "Auction has ended and the payment has already been finalized");
         require(msg.sender == winningBidder || msg.sender == seller, "You are not the winner or the seller!");
         
@@ -99,7 +112,7 @@ contract smartAuction {
     function wait() public returns (phase) {
         emit logEvent("block.num", block.number);
 
-        return getCurrentPhase();
+        return getCurrentPhase(block.number);
     }
     
     //finalize method: not implemented in order to make the contract abstract

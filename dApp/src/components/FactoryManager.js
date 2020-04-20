@@ -10,8 +10,9 @@ class FactoryManager extends Component {
         super(props);
 
         this.state = {
-            open : false,
+            openMenu : false, //used to open the collectable auction menu
             anchorEl : null,
+            isClose : false, //check if auction factory is destroyed
             auctions : [], //auctions finalized that need to be collected
         }
     }
@@ -26,14 +27,14 @@ class FactoryManager extends Component {
         
         //subscribe to the dispatcher in order to receive the addresses
         //of finalized auctions, in order to collect the fees
-        this.props.dispatcher.addEventSubscriber("finalized", 0, (data) => {
+        this.props.dispatcher.addEventSubscriber("collectable", 0, (data) => {
 			if(data.addr !== undefined){
                 this.setState(oldState => ({
                     auctions : [...oldState.auctions, data.addr],
                 }));
 			}
 			else{
-				console.error("AUCTIONEND NOTIFICATION ERROR: INCOMPLETE DATA")
+				console.error("COLLECTRABLE NOTIFICATION ERROR: INCOMPLETE DATA")
 			}
 		});
     }
@@ -48,15 +49,15 @@ class FactoryManager extends Component {
 
     //Used to open/close the collectable auctions' menu
     handleMenu = event => {
-        if(this.anyAuction() && this.isOwner() && !this.state.open){
+        if(this.anyAuction() && this.isOwner() && !this.state.openMenu){
             this.setState({
-                open : true,
+                openMenu : true,
                 anchorEl : event.currentTarget,
             });
         }
         else{
             this.setState({
-                open : false,
+                openMenu : false,
                 anchorEl : null,
             });
         }
@@ -85,6 +86,11 @@ class FactoryManager extends Component {
             this.props.contracts[this.props.types.FACTORY].deployed().then(async(instance) => {
                 instance.closeFactory({from : this.props.account}).then(() => {
                     console.log("smart auction factory closed");
+
+                    //close factory
+                    this.setState({
+                        isClose : true,
+                    });
                 }).catch(err => {console.error("DID YOU DEPLOY THE AUCTION FACTORY VIA TRUFFLE MIGRATE?", err)});
             }).catch(err => {console.error("DID YOU DEPLOY THE AUCTION FACTORY VIA TRUFFLE MIGRATE?", err)});
         }
@@ -104,7 +110,7 @@ class FactoryManager extends Component {
                     id="auction-menu"
                     anchorEl={this.state.anchorEl}
                     keepMounted
-                    open={this.state.open}
+                    open={this.state.openMenu}
                     onClose={this.handleMenu}
                     PaperProps={{
                         style: {
@@ -123,7 +129,7 @@ class FactoryManager extends Component {
                 <Button 
                     onClick={this.handleFactoryDestruction} 
                     color="primary"
-                    disabled={!this.isOwner()}
+                    disabled={!(!this.state.isClose && !this.anyAuction() && this.isOwner())}
                 >
                     Destroy Auction Factory
                 </Button>
