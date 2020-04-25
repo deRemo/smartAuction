@@ -49,7 +49,7 @@ class VickeryHandlers{
     }
 
     withdrawConditions = (state) => {
-        return state.currentPhase === this.phases.WITHDRAW;
+        return state.currentPhase === this.phases.WITHDRAW && state.account_committed;
     }
 
     handleWithdrawButton = (state, props) => {

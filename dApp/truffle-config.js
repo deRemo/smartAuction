@@ -19,7 +19,7 @@
  */
 
 const HDWalletProvider = require('truffle-hdwallet-provider'); //install from npm
-const infuraKey = "610cee94da8641f392f0b8488db91a24"; //infura project id
+const infuraKey = "fda003b4c76143fda9eae4c8073d7997"; //infura project id
 
 const fs = require('fs');
 const mnemonic = fs.readFileSync(".secret").toString().trim(); //metamask seed words

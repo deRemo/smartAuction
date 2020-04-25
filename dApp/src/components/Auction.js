@@ -70,7 +70,7 @@ class Auction extends Component {
         
         const isEnglish = this.props.auction_type === types.ENGLISH;
 
-        //pick the set of handlers based on the auction type
+        //load a set of auction-specific handlers
         this.handlers = (isEnglish) ? new EnglishHandlers(phases) : new VickeryHandlers(phases);
 
         //initial state: set up the generic component properties and
@@ -220,7 +220,7 @@ class Auction extends Component {
         });
     }
 
-    /* GENERIC AUCTION FUNCTIONS */
+    /* GENERIC AUCTION HANDLERS */
 
     //Set up the correct current phase
     updateAuctionPhase = (phase) => {
@@ -284,7 +284,7 @@ class Auction extends Component {
         }
     };
 
-    /* UI FUNCTIONS */
+    /* GENERIC UI HANDLERS */
 
     //open and close the Auction Dialog, which is used to interact with it
     //and display the auction's infos
